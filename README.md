@@ -1,21 +1,6 @@
 ## IBMCLOUD-CREATE-VPC
 
-This Python code reads a yaml based topology configuration file and instantiates the specified VPC network on the IBM Cloud using the IBM Cloud 
-RIAS api.
-
-To execute the code you must first authenticate with the IBM Cloud by using Identity and Access Management (IAM).  This script requires that you first request a bearer token and store
-it in a file called iam_token.   This token is used in an Authorization header for the REST API calls, and is only valid for one hour.  To 
-request the token follow the following steps
-
-```
-ibmcloud login --sso
-iam_token=$(ibmcloud iam oauth-tokens | awk '/IAM/{ print $3 " " $4; }')
-echo $iam_token > iam_token
-```
-Alternatively you can run the following command:
-```
-./gettoken.sh
-```
+This Python code reads a yaml based topology configuration file and instantiates the specified VPC network based onthe YAML configuration on the IBM Cloud using the RIAS APII.
 
 ## Configuring your VPC topology
 The topology is configured using standard YAML format
@@ -64,7 +49,21 @@ To identify the available zones within a region.
 ibmcloud login --sso
 ibmcloud is regions region_name
 ```
-To executre the Python code and build the specified VPC
+To execute the code you must first authenticate with the IBM Cloud by using Identity and Access Management (IAM).  This script requires that you first request a bearer token and store
+it in a file called iam_token.   This token is used in an Authorization header for the REST API calls, and is only valid for one hour.  To 
+request the token follow the following steps
+
+```
+ibmcloud login --sso
+iam_token=$(ibmcloud iam oauth-tokens | awk '/IAM/{ print $3 " " $4; }')
+echo $iam_token > iam_token
+```
+Alternatively you can run the following command to generate the file:
+```
+./gettoken.sh
+```
+
+Once complete execute the Python code and build the specified VPC
 ```
 ./provision-vpc.py
 ```
