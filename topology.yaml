@@ -1,0 +1,49 @@
+  - vpc: "jonhall-vpctest01"
+    region: "us-south"
+    classic_access: false
+    resource_group: "default"
+    default_network_acl:
+      name: "jonhall-vpctest01-acl"
+      rules:
+        - name: "rule1"
+          action: "allow"
+          direction: "outbound"
+          protocol: "all"
+          source: "0.0.0.0/0"
+          destination: "0.0.0.0/32"
+        - name: "rule2"
+          action: "allow"
+          direction: "inbound"
+          protocol: "all"
+          source: "0.0.0.0/0"
+          destination: "0.0.0.0/32"
+    zones:
+      - name: "us-south-1"
+        subnets:
+        - subnet: "web-tier-us-south-1"
+          ipv4_cidr_block: "10.240.0.0/24"
+          network_acl: "jonhall-vpctest01-acl"
+          publicGateway: true
+        - subnet: "app-tier-us-south-1"
+          ipv4_cidr_block: "10.240.1.0/24"
+          network_acl: "jonhall-vpctest01-acl"
+      - name: "us-south-2"
+        subnets:
+        - subnet: "web-tier-us-south-2"
+          ipv4_cidr_block: "10.240.64.0/24"
+          publicGateway: true
+          network_acl: "jonhall-vpctest01-acl"
+        - subnet: "app-tier-us-south-2"
+          ipv4_cidr_block: "10.240.65.0/24"
+          network_acl: "jonhall-vpctest01-acl"
+      - name: "us-south-3"
+        subnets:
+        - subnet: "web-tier-us-south-3"
+          ipv4_cidr_block: "10.240.128.0/24"
+          network_acl: "jonhall-vpctest01-acl"
+          publicGateway: true
+        - subnet: "app-tier-us-south-3"
+          ipv4_cidr_block: "10.240.129.0/24"
+          network_acl: "jonhall-vpctest01-acl"
+
+

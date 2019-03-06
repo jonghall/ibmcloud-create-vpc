@@ -1,12 +1,5 @@
 
-.idea/dictionaries/
-.idea/encodings.xml
-.idea/ibmcloud-create-vpc.iml
-.idea/inspectionProfiles/
-.idea/misc.xml
-.idea/modules.xml
-.idea/vagrant.xml
-.idea/workspace.xml
+/venv/
+/.gitignore
 /iam_token
-venv/
 /output.json
