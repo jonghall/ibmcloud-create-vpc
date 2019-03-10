@@ -19,6 +19,11 @@
         - subnet: "app-tier-us-south-1"
           ipv4_cidr_block: "10.240.1.0/24"
           network_acl: "jonhall-vpctest01-acl"
+          instances:
+            - instance: "app%02d-us-south-1"
+              quantity: 2
+              template: "app_server"
+              floating_ip: false
       - name: "us-south-2"
         subnets:
         - subnet: "web-tier-us-south-2"
@@ -33,6 +38,11 @@
         - subnet: "app-tier-us-south-2"
           ipv4_cidr_block: "10.240.65.0/24"
           network_acl: "jonhall-vpctest01-acl"
+          instances:
+          - instance: "app%02d-us-south-2"
+            quantity: 2
+            template: "app_server"
+            floating_ip: false
       - name: "us-south-3"
         subnets:
         - subnet: "web-tier-us-south-3"
@@ -47,15 +57,20 @@
         - subnet: "app-tier-us-south-3"
           ipv4_cidr_block: "10.240.129.0/24"
           network_acl: "jonhall-vpctest01-acl"
+          instances:
+            - instance: "app%02d-us-south-3"
+              quantity: 2
+              template: "app_server"
+              floating_ip: false
     instanceTemplates:
       - template: "web_server"
         image_id:  "7eb4e35b-4257-56f8-d7da-326d85452591" # ubuntu 16.4
         profile_name: "c-2x4"
         sshkey_id: "636f6d70-0000-0001-0000-00000014ba47" # jonhall
         cloud-init-file: "cloud-init.txt"
-      - template: "db_server"
+      - template: "app_server"
         image_id:  "7eb4e35b-4257-56f8-d7da-326d85452591" # ubuntu 16.4
-        profile_name: "c-2x4"
+        profile_name: "m-4x32"
         sshkey_id: "636f6d70-0000-0001-0000-00000014ba47" # jonhall
         cloud-init-file: "cloud-init.txt"
-
+        
