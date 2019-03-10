@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+## Provision-vpc - A script to provision vpc, network, and compute resources based on a templated topology yaml file.
+## Author: Jon Hall
+##
 
 import requests, json, time, sys, yaml
 from email.mime.multipart import MIMEMultipart

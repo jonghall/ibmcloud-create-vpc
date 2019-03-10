@@ -107,7 +107,7 @@ Instance name is derived from the text provided for "instance".   Use %02d to re
 be generated sequentially during provisioning.    The number of instances provisioned in the specified subnet is determined
 by the Quantity parameter, and the template specified must match a instanceTemplate defined elsewhere in the yaml file.
 
-
+### Execute Script
 To execute the code you must first authenticate with the IBM Cloud by using Identity and Access Management (IAM).  This script requires that you first request a bearer token and store
 it in a file called iam_token.   This token is used in an Authorization header for the REST API calls, and is only valid for one hour.  To 
 request the token follow the following steps
