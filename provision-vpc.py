@@ -6,7 +6,6 @@ from email.mime.text import MIMEText
 
 
 def main():
-
     # Determine if region identified is available
     region = getregionavailability(topology["region"])
 
@@ -34,7 +33,8 @@ def main():
                     user_data = encodecloudinit(template["cloud-init-file"])
                     for q in range(1, instance["quantity"] + 1):
                         instance_name = (instance["instance"] % q)
-                        instance_id = createinstance(zone["name"], instance_name, vpc_id, image_id, profile_name, sshkey_id,
+                        instance_id = createinstance(zone["name"], instance_name, vpc_id, image_id, profile_name,
+                                                     sshkey_id,
                                                      subnet_id,
                                                      user_data)
                         # IF floating_ip = True assign
@@ -52,7 +52,6 @@ def main():
 
 
 def getzones(region):
-
     #############################
     # Get list of zones in Region
     #############################
@@ -74,7 +73,6 @@ def getzones(region):
 
 
 def getregionavailability(region):
-
     #############################
     # Get Region Availability
     #############################
@@ -98,7 +96,6 @@ def getregionavailability(region):
 
 
 def getnetworkaclid(network_acl_name):
-
     ################################################
     ## Lookup network acl id by name
     ################################################
@@ -120,7 +117,6 @@ def getnetworkaclid(network_acl_name):
 
 
 def createpublicgateway(gateway_name, zone_name, vpc_id):
-
     #################################
     # Create a public gateway
     #################################
@@ -150,26 +146,25 @@ def createpublicgateway(gateway_name, zone_name, vpc_id):
 
 
 def attachpublicgateway(gateway_id, subnet_id):
-
     #################################
     # Attach a public gateway
     #################################
 
     # Check subnet status first...waiting up to 30 seconds
-    count=0
+    count = 0
     while count < 12:
-        resp = requests.get(rias_endpoint + '/v1/subnets/'+subnet_id + version, headers=headers);
+        resp = requests.get(rias_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers);
         subnet_status = json.loads(resp.content)["status"]
-        if  subnet_status == "available":
+        if subnet_status == "available":
             break
         else:
-            print ("Waiting for subnet creation before attaching public gateway.   Sleeping for 5 seconds...")
+            print("Waiting for subnet creation before attaching public gateway.   Sleeping for 5 seconds...")
             count += 1
             time.sleep(5)
 
     parms = {"id": gateway_id}
-    resp = requests.put(rias_endpoint + '/v1/subnets/'+subnet_id+'/public_gateway' + version, json=parms,
-                         headers=headers)
+    resp = requests.put(rias_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version, json=parms,
+                        headers=headers)
     if resp.status_code == 201:
         attach = resp.json()
         print("Public gateway attached to subnet %s." % attach["name"])
@@ -182,7 +177,7 @@ def attachpublicgateway(gateway_id, subnet_id):
     elif resp.status_code == 404:
         print("A subnet with the specified identifier could not be found.")
         print("template=%s" % parms)
-        print("Request: %s" % rias_endpoint + '/v1/subnets/'+subnet_id+'/public_gateway' + version)
+        print("Request: %s" % rias_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version)
         print("Response:  %s" % json.loads(resp.content))
         quit()
     else:
@@ -196,7 +191,6 @@ def attachpublicgateway(gateway_id, subnet_id):
 
 
 def createvpc():
-
     ##################################
     # Create VPC in desired region
     ##################################
@@ -265,7 +259,6 @@ def createvpc():
 
 
 def createsubnet(vpc_id, zone_name, subnet):
-
     ################################################
     ## Create new subnet is zone
     ################################################
@@ -278,7 +271,6 @@ def createsubnet(vpc_id, zone_name, subnet):
         if subnet_id != 0:
             print("Subnet named %s already exists in zone. (id=%s) Continuing." % (subnet["subnet"], subnet_id))
             return subnet_id
-
 
     network_acl_id = getnetworkaclid(subnet['network_acl'])
     parms = {"name": subnet["subnet"],
@@ -319,19 +311,20 @@ def createsubnet(vpc_id, zone_name, subnet):
 
 
 def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, sshkey_id, subnet_id, user_data):
-
     ##############################################
     # create new instance in desired vpc and zone
     ##############################################
 
     # get list of instances to check if instance already exists
-    resp = requests.get(rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.id=" + subnet_id, headers=headers)
+    resp = requests.get(rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.id=" + subnet_id,
+                        headers=headers)
     if resp.status_code == 200:
         instancelist = json.loads(resp.content)["instances"]
         if len(instancelist) > 0:
             instancelist = list(filter(lambda i: i['name'] == instance_name, instancelist))
             if len(instancelist) > 0:
-                print('Instance named %s already exists in subnet. (id=%s) Continuing.' % (instance_name, instancelist[0]["id"]))
+                print('Instance named %s already exists in subnet. (id=%s) Continuing.' % (
+                instance_name, instancelist[0]["id"]))
                 return instancelist[0]["id"]
     else:
         # error stop execution
@@ -339,27 +332,27 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
         print("Error Data:  %s" % json.loads(resp.content)['errors'])
         quit()
 
-    parms = {"zone":{"name": zone_name},
-                "name": instance_name,
-                "vpc":{"id": vpc_id},
-                "image":{"id": image_id},
-                "user_data": user_data,
-                "profile":{"name": profile_name},
-                "keys":[{"id": sshkey_id}],
-                "primary_network_interface":{
-                   "port_speed":1000,
-                   "name":"eth0",
-                   "subnet":{"id": subnet_id}},
-                "network_interfaces":[],
-                "volume_attachments":[],
-                "boot_volume_attachment":{
-                   "volume":{
-                      "capacity":100,
-                      "profile":{"name":"general-purpose"}
-                    },
-                   "delete_volume_on_instance_delete": True
-                }
-            }
+    parms = {"zone": {"name": zone_name},
+             "name": instance_name,
+             "vpc": {"id": vpc_id},
+             "image": {"id": image_id},
+             "user_data": user_data,
+             "profile": {"name": profile_name},
+             "keys": [{"id": sshkey_id}],
+             "primary_network_interface": {
+                 "port_speed": 1000,
+                 "name": "eth0",
+                 "subnet": {"id": subnet_id}},
+             "network_interfaces": [],
+             "volume_attachments": [],
+             "boot_volume_attachment": {
+                 "volume": {
+                     "capacity": 100,
+                     "profile": {"name": "general-purpose"}
+                 },
+                 "delete_volume_on_instance_delete": True
+             }
+             }
 
     resp = requests.post(rias_endpoint + '/v1/instances' + version, json=parms, headers=headers)
 
@@ -381,7 +374,6 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
 
 
 def assignfloatingip(instance_id):
-
     ##############################################
     # Assign Floating IP to instance
     ##############################################
@@ -402,21 +394,24 @@ def assignfloatingip(instance_id):
             time.sleep(10)
 
     # Check if floating IP already assigned
-    resp = requests.get(rias_endpoint + "/v1/instances/" + instance_id + "/network_interfaces/" + network_interface + "/floating_ips" + version, headers=headers)
+    resp = requests.get(
+        rias_endpoint + "/v1/instances/" + instance_id + "/network_interfaces/" + network_interface + "/floating_ips" + version,
+        headers=headers)
     if resp.status_code == 200:
         floating_ip = json.loads(resp.content)
         if "floating_ips" in floating_ip:
             floating_ip = floating_ip["floating_ips"]
             if len(floating_ip) > 0:
-                print("Floating ip %s already assigned to %s. (id=%s) Continuing." % (floating_ip[0]["address"], instance_status["name"], floating_ip[0]['id']))
+                print("Floating ip %s already assigned to %s. (id=%s) Continuing." % (
+                floating_ip[0]["address"], instance_status["name"], floating_ip[0]['id']))
                 return floating_ip[0]['id'], floating_ip[0]['address']
 
     #  Nome assigned.  Request one.
     parms = {
         "target": {
             "id": network_interface
-                }
-            }
+        }
+    }
     resp = requests.post(rias_endpoint + '/v1/floating_ips' + version, json=parms, headers=headers)
 
     if resp.status_code == 201:
@@ -437,7 +432,6 @@ def assignfloatingip(instance_id):
 
 
 def encodecloudinit(filename):
-
     ################################################
     ## encode cloud-init.txt for use with user data
     ################################################
@@ -451,14 +445,12 @@ def encodecloudinit(filename):
 
 
 def getinstancetemplate(templates, search):
-
     ################################################
     ## Find instance template in list
     ################################################
 
     template = [d for d in templates if d['template'] == search]
     return template[0]
-
 
 
 #####################################
@@ -481,7 +473,3 @@ with open("topology.yaml", 'r') as stream:
     topology = yaml.load(stream)[0]
 
 main()
-
-
-
-

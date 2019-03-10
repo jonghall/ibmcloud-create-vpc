@@ -1,6 +1,9 @@
 ## IBMCLOUD-CREATE-VPC
 
-This Python code reads a yaml based topology configuration file and instantiates the specified VPC network based onthe YAML configuration on the IBM Cloud using the RIAS APII.
+This Python based program reads a yaml based topology configuration file and instantiates the specified VPC network and compute 
+resources based on the YAML configuration specified using the RIAS REST API.  This approach allows for templating and 
+consistency between application tiers, subnets, zones, and regions avoiding the need to manually define resources via a portal
+or CLI and avoiding having to create your own provisioning scripts.
 
 ## Configuring your VPC topology
 The topology is configured using standard YAML format
