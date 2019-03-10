@@ -73,4 +73,3 @@
         profile_name: "m-4x32"
         sshkey_id: "636f6d70-0000-0001-0000-00000014ba47" # jonhall
         cloud-init-file: "cloud-init.txt"
-
