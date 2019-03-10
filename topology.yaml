@@ -4,19 +4,6 @@
     resource_group: "default"
     default_network_acl:
       name: "jonhall-vpctest01-acl"
-      rules:
-        - name: "rule1"
-          action: "allow"
-          direction: "outbound"
-          protocol: "all"
-          source: "0.0.0.0/0"
-          destination: "0.0.0.0/32"
-        - name: "rule2"
-          action: "allow"
-          direction: "inbound"
-          protocol: "all"
-          source: "0.0.0.0/0"
-          destination: "0.0.0.0/32"
     zones:
       - name: "us-south-1"
         subnets:
@@ -24,6 +11,11 @@
           ipv4_cidr_block: "10.240.0.0/24"
           network_acl: "jonhall-vpctest01-acl"
           publicGateway: true
+          instances:
+              - instance: "web%02d-us-south-1"
+                quantity: 2
+                template: "web_server"
+                floating_ip: true
         - subnet: "app-tier-us-south-1"
           ipv4_cidr_block: "10.240.1.0/24"
           network_acl: "jonhall-vpctest01-acl"
@@ -33,6 +25,11 @@
           ipv4_cidr_block: "10.240.64.0/24"
           publicGateway: true
           network_acl: "jonhall-vpctest01-acl"
+          instances:
+              - instance: "web%02d-us-south-2"
+                quantity: 2
+                template: "web_server"
+                floating_ip: true
         - subnet: "app-tier-us-south-2"
           ipv4_cidr_block: "10.240.65.0/24"
           network_acl: "jonhall-vpctest01-acl"
@@ -42,8 +39,23 @@
           ipv4_cidr_block: "10.240.128.0/24"
           network_acl: "jonhall-vpctest01-acl"
           publicGateway: true
+          instances:
+            - instance: "web%02d-us-south-3"
+              quantity: 2
+              template: "web_server"
+              floating_ip: true
         - subnet: "app-tier-us-south-3"
           ipv4_cidr_block: "10.240.129.0/24"
           network_acl: "jonhall-vpctest01-acl"
-
+    instanceTemplates:
+      - template: "web_server"
+        image_id:  "7eb4e35b-4257-56f8-d7da-326d85452591" # ubuntu 16.4
+        profile_name: "c-2x4"
+        sshkey_id: "636f6d70-0000-0001-0000-00000014ba47" # jonhall
+        cloud-init-file: "cloud-init.txt"
+      - template: "db_server"
+        image_id:  "7eb4e35b-4257-56f8-d7da-326d85452591" # ubuntu 16.4
+        profile_name: "c-2x4"
+        sshkey_id: "636f6d70-0000-0001-0000-00000014ba47" # jonhall
+        cloud-init-file: "cloud-init.txt"
 
