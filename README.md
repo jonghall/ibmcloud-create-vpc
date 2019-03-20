@@ -4,6 +4,8 @@ This Python based program reads a yaml based topology configuration file and ins
 resources based on the YAML configuration specified using the RIAS REST API.  This approach allows for templating and 
 consistency between application tiers, subnets, zones, and regions avoiding the need to manually define resources via a portal
 or CLI and avoiding having to create your own provisioning scripts.
+![](topology.png?raw=true)
+
 
 ## Configuring your VPC topology
 The topology is configured using standard YAML format
