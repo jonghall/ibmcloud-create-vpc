@@ -160,7 +160,7 @@ Once complete execute the Python code to build the specified VPC and required ap
 ./provision-vpc.py
 ```
 
-##Known Limitations
+## Known Limitations
 - ACL's and Security Groups must exist.  References are matched based on names and assigned to resources.   
 - Only one VPC can be defined in YAML file
 - Only parameters shown in YAML file are currently supported
