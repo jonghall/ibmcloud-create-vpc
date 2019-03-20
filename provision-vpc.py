@@ -154,7 +154,7 @@ def createpublicgateway(gateway_name, zone_name, vpc_id):
     # Create a public gateway
     #################################
 
-    parms = {"name": gateway_name,
+    parms = {
              "zone": {"name": zone_name},
              "vpc": {"id": vpc_id}
              }
@@ -171,7 +171,7 @@ def createpublicgateway(gateway_name, zone_name, vpc_id):
         quit()
     else:
         # error stop execution
-        print("%s Error creating public gateway." % (resp.status_code, zone["name"]))
+        print("%s Error creating public gateway." % (resp.status_code, zone_name))
         print("template=%s" % parms)
         print("Error Data:  %s" % json.loads(resp.content)['errors'])
         quit()
@@ -300,10 +300,11 @@ def createaddressprefix(vpc_id, name, zone, cidr):
     resp = requests.get(rias_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes' + version, headers=headers)
     if resp.status_code == 200:
         prefixlist = json.loads(resp.content)["address_prefixes"]
-        prefix_id = list(filter(lambda p: p['name'] == name, prefixlist))[0]['id']
-        if prefix_id != 0:
-            print("Prefix named %s already exists in VPC. (id=%s) Continuing." % (name, prefix_id))
-            return prefix_id
+        prefix_id = list(filter(lambda p: p['name'] == name, prefixlist))
+        if len(prefix_id) > 0:
+            if prefix_id[0]["id"] != 0:
+                print("Prefix named %s already exists in VPC. (id=%s) Continuing." % (name, prefix_id[0]["id"]))
+                return prefix_id[0]["id"]
 
     parms = {"name": name,
              "zone": {"name": zone},
@@ -373,7 +374,20 @@ def createsubnet(vpc_id, zone_name, subnet):
                 gateway = createpublicgateway(gateway_name, zone_name, vpc_id)
                 attachpublicgateway(gateway['id'], resp.json()["id"])
             else:
-                time.sleep(15)  # wait 15 seconds to make sure subnet is created when no public gateway
+                # Check subnet status first as not attaching gateway..waiting up to 30 seconds
+                count = 0
+                while count < 12:
+                    resp = requests.get(rias_endpoint + '/v1/subnets/' + newsubnet["id"] + version, headers=headers);
+                    subnet_status = json.loads(resp.content)["status"]
+                    if subnet_status == "available":
+                        break
+                    else:
+                        print(
+                            "Waiting for subnet creation to complete before proceeding.   Sleeping for 5 seconds...")
+                        count += 1
+                        time.sleep(5)
+                print(
+                    "Subnet %s creation to complete before proceeding." % subnet["name"])
         return newsubnet["id"]
     elif resp.status_code == 400:
         print("Invalid subnet template provided.")
