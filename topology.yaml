@@ -1,21 +1,20 @@
 -
-  vpc: jonhall-vpctest01
+  vpc: ecommerce-vpc
   region: us-south
   classic_access: false
   resource_group: default
-  default_network_acl:
-    name: jonhall-vpctest01-acl
+  default_network_acl: ecommerce-vpc-acl
   address_prefix:
     -
-      name: jonhall-vpctest01-zone-1
+      name: ecommerce-vpc-zone-1
       zone: us-south-1
       cidr: 172.16.0.0/18
     -
-      name: jonhall-vpctest01-zone-2
+      name: ecommerce-vpc-zone-2
       zone: us-south-2
       cidr: 172.16.64.0/18
     -
-      name: jonhall-vpctest01-zone-3
+      name: ecommerce-vpc-zone-3
       zone: us-south-3
       cidr: 172.16.128.0/18
   zones:
@@ -25,33 +24,45 @@
         -
           name: web-tier-us-south-1
           ipv4_cidr_block: 172.16.0.0/24
-          network_acl: jonhall-vpctest01-acl
+          network_acl: ecommerce-vpc-acl
           publicGateway: true
           instances:
             -
               name: web%02d-us-south-1
-              quantity: 1
+              quantity: 2
               template: web_server
               floating_ip: true
-              security_group: jonhall-vpctest01-webtier
-              lb_name: jonhall-vpctest01-webtier-lb01
+              security_group: ecommerce-vpc-webtier
+              lb_name: ecommerce-vpc-webtier-lb01
               lb_pool: http-app1
               listen_port: 80
         -
           name: app-tier-us-south-1
           ipv4_cidr_block: 172.16.16.0/24
-          network_acl: jonhall-vpctest01-acl
+          network_acl: ecommerce-vpc-acl
           publicGateway: false
           instances:
             -
               name: app%02d-us-south-1
-              quantity: 2
+              quantity: 1
               template: app_server
               floating_ip: false
-              security_group: jonhall-vpctest01-apptier
-              lb_name: jonhall-vpctest01-apptier-lb01
+              security_group: ecommerce-vpc-apptier
+              lb_name: ecommerce-vpc-apptier-lb01
               lb_pool: http-app1
               listen_port: 80
+        -
+          name: db-tier-us-south-1
+          ipv4_cidr_block: 172.16.32.0/24
+          network_acl: ecommerce-vpc-acl
+          publicGateway: false
+          instances:
+            -
+              name: db%02d-us-south-1
+              quantity: 1
+              template: app_server
+              floating_ip: false
+              security_group: ecommerce-vpc-dbtier
     -
       name: us-south-2
       subnets:
@@ -59,38 +70,51 @@
           name: web-tier-us-south-2
           ipv4_cidr_block: 172.16.64.0/24
           publicGateway: true
-          network_acl: jonhall-vpctest01-acl
+          network_acl: ecommerce-vpc-acl
           instances:
             -
               name: web%02d-us-south-2
               quantity: 1
               template: web_server
               floating_ip: true
-              security_group: jonhall-vpctest01-webtier
-              lb_name: jonhall-vpctest01-webtier-lb01
+              security_group: ecommerce-vpc-webtier
+              lb_name: ecommerce-vpc-webtier-lb01
               lb_pool: http-app1
               listen_port: 80
         -
           name: app-tier-us-south-2
           ipv4_cidr_block: 172.16.80.0/24
-          network_acl: jonhall-vpctest01-acl
+          network_acl: ecommerce-vpc-acl
           publicGateway: false
           instances:
-            - name: app%02d-us-south-2
+            -
+              name: app%02d-us-south-2
               quantity: 1
               template: app_server
               floating_ip: false
-              security_group: jonhall-vpctest01-apptier
-              lb_name: jonhall-vpctest01-apptier-lb01
+              security_group: ecommerce-vpc-apptier
+              lb_name: ecommerce-vpc-apptier-lb01
               lb_pool: http-app1
               listen_port: 80
+        -
+          name: db-tier-us-south-2
+          ipv4_cidr_block: 172.16.96.0/24
+          network_acl: ecommerce-vpc-acl
+          publicGateway: false
+          instances:
+            -
+              name: db%02d-us-south-2
+              quantity: 1
+              template: app_server
+              floating_ip: false
+              security_group: ecommerce-vpc-dbtier
     -
       name: us-south-3
       subnets:
         -
           name: web-tier-us-south-3
           ipv4_cidr_block: 172.16.128.0/24
-          network_acl: jonhall-vpctest01-acl
+          network_acl: ecommerce-vpc-acl
           publicGateway: true
           instances:
             -
@@ -98,27 +122,40 @@
               quantity: 1
               template: web_server
               floating_ip: true
-              security_group: jonhall-vpctest01-webtier
-              lb_name: jonhall-vpctest01-webtier-lb01
+              security_group: ecommerce-vpc-webtier
+              lb_name: ecommerce-vpc-webtier-lb01
               lb_pool: http-app1
               listen_port: 80
         -
           name: app-tier-us-south-3
           ipv4_cidr_block: 172.16.144.0/24
-          network_acl: jonhall-vpctest01-acl
+          network_acl: ecommerce-vpc-acl
           publicGateway: false
           instances:
-            - name: app%02d-us-south-3
+            -
+              name: app%02d-us-south-3
               quantity: 1
               template: app_server
               floating_ip: false
-              security_group: jonhall-vpctest01-apptier
-              lb_name: jonhall-vpctest01-apptier-lb01
+              security_group: ecommerce-vpc-apptier
+              lb_name: ecommerce-vpc-apptier-lb01
               lb_pool: http-app1
               listen_port: 80
+        -
+          name: db-tier-us-south-3
+          ipv4_cidr_block: 172.16.160.0/24
+          network_acl: ecommerce-vpc-acl
+          publicGateway: false
+          instances:
+             -
+              name: db%02d-us-south-3
+              quantity: 1
+              template: app_server
+              floating_ip: false
+              security_group: ecommerce-vpc-dbtier
   load_balancers:
     -
-      lbInstance: jonhall-vpctest01-webtier-lb01
+      lbInstance: ecommerce-vpc-webtier-lb01
       is_public: true
       subnets:
         - web-tier-us-south-1
@@ -141,7 +178,7 @@
             timeout: 2
             url_path: /
     -
-      lbInstance: jonhall-vpctest01-apptier-lb01
+      lbInstance: ecommerce-vpc-apptier-lb01
       is_public: false
       subnets:
         - app-tier-us-south-1
@@ -172,6 +209,12 @@
     -
       template: app_server
       image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
-      profile_name: c-2x4
+      profile_name: c-8x16
+      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
+      cloud-init-file: cloud-init.txt
+    -
+      template: db_server
+      image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
+      profile_name: m-32x256
       sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
       cloud-init-file: cloud-init.txt

@@ -246,7 +246,7 @@ def createvpc():
             if resp.status_code == 200:
                 acls = json.loads(resp.content)["network_acls"]
                 default_network_acl = \
-                    list(filter(lambda acl: acl['name'] == topology["default_network_acl"]["name"], acls))
+                    list(filter(lambda acl: acl['name'] == topology["default_network_acl"], acls))
 
                 if len(default_network_acl) > 0:
                     print("%s network_acl already exists.   Using network_acl_id %s as default." % (
@@ -278,7 +278,7 @@ def createvpc():
                 else:
                     # *** need to create default ACL if it doesn't exist already per rules in topology file.
                     print("%s network_acls does not exists.  Please manually implement and re-run." % (
-                        topology["default_network_acl"]["name"]))
+                        topology["default_network_acl"]))
                     quit()
             else:
                 # error stop execution
