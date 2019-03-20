@@ -79,7 +79,7 @@ Profile_name must be a valid profile_name.   Profiles represent the memory and c
 To identify available profiles in each region:
 
 ```
-ibmcloud is instance profiles
+ibmcloud is instance-profiles
 ```
 Images determine the cloud-init image to use for provisioning.  Include the image_id.  To identify available images
 ```
@@ -159,3 +159,8 @@ Once complete execute the Python code to build the specified VPC and required ap
 ```
 ./provision-vpc.py
 ```
+
+## Known Limitations
+- ACL's and Security Groups must exist.  References are matched based on names and assigned to resources.   
+- Only one VPC can be defined in YAML file
+- Only parameters shown in YAML file are currently supported
