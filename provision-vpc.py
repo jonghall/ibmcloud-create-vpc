@@ -18,6 +18,12 @@ def main():
     # Create VPC
     vpc_id = createvpc()
 
+    # If new vpc-address-prefixes provided create
+
+    for prefix in topology['address_prefix']:
+        createaddressprefix(vpc_id, prefix['name'], prefix['zone'], prefix['cidr'])
+
+
     #######################################################################
     # Iterate through subnets in each zone and create subnets & instances
     #######################################################################
@@ -33,23 +39,28 @@ def main():
                     image_id = template["image_id"]
                     profile_name = template["profile_name"]
                     sshkey_id = template["sshkey_id"]
+                    security_group = instance["security_group"]
                     user_data = encodecloudinit(template["cloud-init-file"])
                     for q in range(1, instance["quantity"] + 1):
-                        instance_name = (instance["instance"] % q)
+                        instance_name = (instance["name"] % q)
                         instance_id = createinstance(zone["name"], instance_name, vpc_id, image_id, profile_name,
                                                      sshkey_id,
                                                      subnet_id,
+                                                     security_group,
                                                      user_data)
                         # IF floating_ip = True assign
                         if 'floating_ip' in instance:
                             if instance['floating_ip']:
                                 floating_ip_id, floating_ip_address = assignfloatingip(instance_id)
 
-    #####################################
-    # Write topology JSON state data
-    #####################################
-    with open('topology.json', 'w') as outfile:
-        json.dump(topology, outfile)
+    #######################################################################
+    # Create load balancers specified
+    #######################################################################
+
+    if "load_balancers" in topology:
+        for lb in topology["load_balancers"]:
+            lb_id = createloadbalancer(lb)
+
 
     return
 
@@ -118,6 +129,25 @@ def getnetworkaclid(network_acl_name):
 
     return (network_acl_id)
 
+def getsecuritygroupid(security_group, vpc_id):
+    ################################################
+    ## Lookup security group id by name
+    ################################################
+
+    resp = requests.get(rias_endpoint + '/v1/security_groups/' + version + "&vpc.if=" + vpc_id, headers=headers)
+    if resp.status_code == 200:
+        sgs = json.loads(resp.content)["security_groups"]
+        default_security_group = \
+            list(filter(lambda acl: acl['name'] == security_group, sgs))
+
+        if len(default_security_group) > 0:
+            security_group_id = default_security_group[0]['id']
+        else:
+            security_group_id = 0
+    else:
+        security_group_id = 0
+
+    return security_group_id
 
 def createpublicgateway(gateway_name, zone_name, vpc_id):
     #################################
@@ -216,7 +246,7 @@ def createvpc():
             if resp.status_code == 200:
                 acls = json.loads(resp.content)["network_acls"]
                 default_network_acl = \
-                    list(filter(lambda acl: acl['name'] == topology["default_network_acl"]["name"], acls))
+                    list(filter(lambda acl: acl['name'] == topology["default_network_acl"], acls))
 
                 if len(default_network_acl) > 0:
                     print("%s network_acl already exists.   Using network_acl_id %s as default." % (
@@ -248,7 +278,7 @@ def createvpc():
                 else:
                     # *** need to create default ACL if it doesn't exist already per rules in topology file.
                     print("%s network_acls does not exists.  Please manually implement and re-run." % (
-                        topology["default_network_acl"]["name"]))
+                        topology["default_network_acl"]))
                     quit()
             else:
                 # error stop execution
@@ -257,6 +287,54 @@ def createvpc():
     else:
         # error stop execution
         print("%s Error getting list of vpcs for region %s." % (resp.status_code, topology['region']))
+        quit()
+    return
+
+
+def createaddressprefix(vpc_id, name, zone, cidr):
+    ################################################
+    ## Create New Prefix in VPC
+    ################################################
+
+    # get list of prefixes in VPC to check if prefix already exists
+    resp = requests.get(rias_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes' + version, headers=headers)
+    if resp.status_code == 200:
+        prefixlist = json.loads(resp.content)["address_prefixes"]
+        prefix_id = list(filter(lambda p: p['name'] == name, prefixlist))[0]['id']
+        if prefix_id != 0:
+            print("Prefix named %s already exists in VPC. (id=%s) Continuing." % (name, prefix_id))
+            return prefix_id
+
+    parms = {"name": name,
+             "zone": {"name": zone},
+             "cidr": cidr
+             }
+
+    resp = requests.post(rias_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes?' + version, json=parms, headers=headers)
+
+    if resp.status_code == 201:
+        prefix_id = resp.json()["id"]
+        print("New vpc-address-prefix %s named %s was created successfully in zone %s." % (
+            cidr, name, zone))
+        return prefix_id
+    elif resp.status_code == 400:
+        print("An invalid prefix template provided.")
+        print("template=%s" % parms)
+        print("Error Data:  %s" % json.loads(resp.content)['errors'])
+        quit()
+    elif resp.status_code == 404:
+        print("The specified VPC (id=%s) could not be found." % vpc_id)
+        print("template=%s" % parms)
+        quit()
+    elif resp.status_code == 409:
+        print("The prefix template conflicts with another prefix in this VPC.")
+        print("template=%s" % parms)
+        quit()
+    else:
+        # error stop execution
+        print("%s Error creating vpc-address-prefix in %s zone." % (resp.status_code, zone))
+        print("template=%s" % parms)
+        print("Error Data:  %s" % json.loads(resp.content)['errors'])
         quit()
     return
 
@@ -270,13 +348,13 @@ def createsubnet(vpc_id, zone_name, subnet):
     resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers)
     if resp.status_code == 200:
         subnetlist = json.loads(resp.content)["subnets"]
-        subnet_id = list(filter(lambda s: s['name'] == subnet["subnet"], subnetlist))[0]['id']
-        if subnet_id != 0:
-            print("Subnet named %s already exists in zone. (id=%s) Continuing." % (subnet["subnet"], subnet_id))
-            return subnet_id
+        subnet_id = list(filter(lambda s: s['name'] == subnet["name"], subnetlist))
+        if len(subnet_id) > 0:
+            print("Subnet named %s already exists in zone. (id=%s) Continuing." % (subnet["name"], subnet_id[0]["id"]))
+            return subnet_id[0]["id"]
 
     network_acl_id = getnetworkaclid(subnet['network_acl'])
-    parms = {"name": subnet["subnet"],
+    parms = {"name": subnet["name"],
              "ipv4_cidr_block": subnet['ipv4_cidr_block'],
              "network_acl": {"id": network_acl_id},
              "zone": {"name": zone_name},
@@ -287,13 +365,15 @@ def createsubnet(vpc_id, zone_name, subnet):
     if resp.status_code == 201:
         newsubnet = resp.json()
         print("Subnet %s named %s was created successfully in zone %s." % (
-            newsubnet["id"], subnet["subnet"], zone["name"]))
+            newsubnet["id"], subnet["name"], zone_name))
         if 'publicGateway' in subnet:
             if subnet["publicGateway"]:
                 # If specified create gateway and attach.
-                gateway_name = subnet["subnet"] + "-gw"
-                gateway = createpublicgateway(gateway_name, zone["name"], vpc["id"])
-                attach = attachpublicgateway(gateway['id'], resp.json()["id"])
+                gateway_name = subnet["name"] + "-gw"
+                gateway = createpublicgateway(gateway_name, zone_name, vpc_id)
+                attachpublicgateway(gateway['id'], resp.json()["id"])
+            else:
+                time.sleep(15)  # wait 15 seconds to make sure subnet is created when no public gateway
         return newsubnet["id"]
     elif resp.status_code == 400:
         print("Invalid subnet template provided.")
@@ -313,7 +393,7 @@ def createsubnet(vpc_id, zone_name, subnet):
     return
 
 
-def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, sshkey_id, subnet_id, user_data):
+def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, sshkey_id, subnet_id, security_group, user_data):
     ##############################################
     # create new instance in desired vpc and zone
     ##############################################
@@ -331,7 +411,7 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
                 return instancelist[0]["id"]
     else:
         # error stop execution
-        print("%s Error." % resp.status_code)
+        print("%s Error querying subnet API to find if instance already exists." % (resp.status_code))
         print("Error Data:  %s" % json.loads(resp.content)['errors'])
         quit()
 
@@ -345,7 +425,8 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
              "primary_network_interface": {
                  "port_speed": 1000,
                  "name": "eth0",
-                 "subnet": {"id": subnet_id}},
+                 "subnet": {"id": subnet_id},
+                 "security_groups": [{"id": getsecuritygroupid(security_group,vpc_id)}]},
              "network_interfaces": [],
              "volume_attachments": [],
              "boot_volume_attachment": {
@@ -434,6 +515,129 @@ def assignfloatingip(instance_id):
     return
 
 
+def createloadbalancer(lb):
+    ################################################
+    ## create LB instance
+    ################################################
+
+    # get list of load balancers to check if instance already exists
+    resp = requests.get(rias_endpoint + '/v1/load_balancers/' + version,
+                        headers=headers)
+    if resp.status_code == 200:
+        lblist = json.loads(resp.content)["load_balancers"]
+        if len(lblist) > 0:
+            lblist = list(filter(lambda i: i['name'] == lb["lbInstance"], lblist))
+            if len(lblist) > 0:
+                print('Load Balancer named %s already exists in subnet. (id=%s) Continuing.' % (
+                    lb["lbInstance"], lblist[0]["id"]))
+                return lblist[0]["id"]
+    else:
+        # error stop execution
+        print("%s Error." % resp.status_code)
+        print("Error Data:  %s" % json.loads(resp.content)['errors'])
+        quit()
+
+    # Create ListenerTemplate for use in creating load balancer
+    listenerTemplate=[]
+    for listener in lb["listeners"]:
+             listener = {
+                 "port": listener["port"],
+                 "protocol": listener["protocol"],
+                 "default_pool": {"name": listener["default_pool_name"]},
+                 "connection_limit": listener["connection_limit"]
+                 }
+             listenerTemplate.append(listener)
+
+    # Create pool template for use in creating load balancer
+    poolTemplate=[]
+    for pool in lb["pools"]:
+
+        # Create Heath Monitor Template for Pool
+        healthMonitorTemplate = {"type": pool["health_monitor"]["type"],
+                                 "delay": pool["health_monitor"]["delay"],
+                                 "max_retries": pool["health_monitor"]["max_retries"],
+                                 "timeout": pool["health_monitor"]["timeout"],
+                                 "url_path": pool["health_monitor"]["url_path"]
+                                }
+
+
+        # Determine whuch members are in the  pool
+        memberTemplate = []
+        for zone in topology["zones"]:
+            for subnet in zone["subnets"]:
+                # get list of instances on subnet.
+                resp = requests.get(
+                    rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.name=" + subnet["name"],
+                    headers=headers)
+                if resp.status_code == 200:
+                    instancelist = json.loads(resp.content)["instances"]
+                for instance in subnet["instances"]:
+                    if "lb_name" in instance:
+                        # Check if this instance is marked for this LB and pool and if so append instances to member template
+                        if len(instancelist) > 0 and instance["lb_name"] == lb["lbInstance"] and instance["lb_pool"] == pool["name"]:
+                            # iterate through quantity to find each instance
+                            for count in range(1,instance["quantity"]+1):
+                                name = (instance["name"] % count)
+                                # search by instance name to get ipv4 address, and add as member.
+                                instanceinfo = list(filter(lambda i: i['name'] == name, instancelist))
+                                if len(instanceinfo) > 0:
+                                    memberTemplate.append({"port": instance["listen_port"],
+                                                           "target": {"address": instanceinfo[0]["primary_network_interface"]["primary_ipv4_address"]},
+                                                           "weight": 100})
+        # sessions persistence specified for pool add to pool template.
+        if "session_persistence" in pool:
+            session_persistence = pool["session_persistence"]
+        else:
+            session_persistence = ""
+
+        poolTemplate.append({
+            "algorithm": pool["algorithm"],
+            "health_monitor": healthMonitorTemplate,
+            "name": pool["name"],
+            "protocol": pool["protocol"],
+            "sessions_persistence": session_persistence,
+            "members": memberTemplate
+         })
+
+        # get subnet id's for load balancer creationer
+        subnet_list=[]
+        for subnet in lb['subnets']:
+            # get list of subnets in region to check if subnet already exists
+            resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers)
+            if resp.status_code == 200:
+                subnetlist = json.loads(resp.content)["subnets"]
+                subnet_id = list(filter(lambda s: s['name'] == subnet, subnetlist))
+                if len(subnet_id) > 0:
+                    subnet = {"id": subnet_id[0]["id"]}
+                    subnet_list.append(subnet)
+
+        # Build load balancer using templates just created.
+        parms = {"name": lb["lbInstance"],
+                 "is_public": lb['is_public'],
+                 "subnets": subnet_list,
+                 "listeners": listenerTemplate,
+                 "pools": poolTemplate
+                 }
+
+        resp = requests.post(rias_endpoint + '/v1/load_balancers' + version, json=parms, headers=headers)
+
+        if resp.status_code == 201:
+            load_balancer = resp.json()
+            print("Created %s (%s) load balancer successfully." % (lb["lbInstance"], load_balancer["id"]))
+            return (load_balancer["id"])
+        elif resp.status_code == 400:
+            print("Invalid instance template provided.")
+            print("template=%s" % parms)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+        else:
+            # error stop execution
+            print("%s Error." % resp.status_code)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+        return
+
+
 def encodecloudinit(filename):
     ################################################
     ## encode cloud-init.txt for use with user data
@@ -474,5 +678,7 @@ headers = {"Authorization": iam_token}
 
 with open("topology.yaml", 'r') as stream:
     topology = yaml.load(stream)[0]
+
+#print (json.dumps(topology, indent=4))
 
 main()
