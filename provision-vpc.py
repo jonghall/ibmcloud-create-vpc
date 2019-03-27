@@ -16,6 +16,7 @@ def main():
     zones = getzones(topology['region'])
 
     # Create VPC
+    vpc_name = topology["vpc"]
     vpc_id = createvpc()
 
     # If new vpc-address-prefixes provided create
@@ -32,6 +33,32 @@ def main():
         for subnet in zone["subnets"]:
             ## Provision new Subnet
             subnet_id = createsubnet(vpc_id, zone["name"], subnet)
+
+            # Check if Public Gateway is required by Subnet
+            if 'publicGateway' in subnet:
+                if subnet["publicGateway"]:
+                    # A gateway is needed check if Public Gateway already exists in zone, if not create.
+                    resp = requests.get(rias_endpoint + '/v1/public_gateways' + version, headers=headers)
+                    if resp.status_code == 200:
+                        public_gateways = json.loads(resp.content)["public_gateways"]
+                        # Determine if gateway exists and use it.  First get Gateways for this VPC
+                        public_gateway = list(filter(lambda gw: gw['vpc']['id'] == vpc_id, public_gateways))
+                        # Determine if gateway exists in this vpc for this zone
+                        public_gateway = list(filter(lambda gw: gw['zone']['name'] == zone["name"], public_gateway))
+
+                        if len(public_gateway) > 0:
+                            # gateway already exists, get it's ID and attach to subnet.
+                            attachpublicgateway(public_gateway[0]["id"], subnet_id)
+                        else:
+                            # Does not exists, so need to create public gateway then attach
+                            gateway_name = vpc_name + "-" + zone["name"] + "-gw"
+                            public_gateway_id = createpublicgateway(gateway_name, zone["name"], vpc_id)
+                            attachpublicgateway(public_gateway_id, subnet_id)
+                    else:
+                        print("%s Error getting list of gateways for zone %z." % (resp.status_code, zone["name"]))
+                        print("Error Data:  %s" % json.loads(resp.content)['errors'])
+                        quit()
+
             # Build instances for this subnet (if defined in topology)
             if "instances" in subnet:
                 for instance in subnet["instances"]:
@@ -155,6 +182,7 @@ def createpublicgateway(gateway_name, zone_name, vpc_id):
     #################################
 
     parms = {
+             "name": gateway_name,
              "zone": {"name": zone_name},
              "vpc": {"id": vpc_id}
              }
@@ -163,7 +191,7 @@ def createpublicgateway(gateway_name, zone_name, vpc_id):
     if resp.status_code == 201:
         gateway = resp.json()
         print("Public Gateway %s named %s was created successfully." % (gateway["id"], gateway_name))
-        return (gateway)
+        return (gateway["id"])
     elif resp.status_code == 400:
         print("Invalid public gateway template provided.")
         print("template=%s" % parms)
@@ -364,30 +392,21 @@ def createsubnet(vpc_id, zone_name, subnet):
     resp = requests.post(rias_endpoint + '/v1/subnets' + version, json=parms, headers=headers)
 
     if resp.status_code == 201:
+        print("Subnet named %s requested in zone %s." % (subnet["name"], zone_name))
         newsubnet = resp.json()
+        count = 0
+        while count < 12:
+            resp = requests.get(rias_endpoint + '/v1/subnets/' + newsubnet["id"] + version, headers=headers);
+            subnet_status = json.loads(resp.content)["status"]
+            if subnet_status == "available":
+                break
+            else:
+                print(
+                    "Waiting for subnet creation to complete before proceeding.   Sleeping for 5 seconds...")
+                count += 1
+                time.sleep(5)
         print("Subnet %s named %s was created successfully in zone %s." % (
             newsubnet["id"], subnet["name"], zone_name))
-        if 'publicGateway' in subnet:
-            if subnet["publicGateway"]:
-                # If specified create gateway and attach.
-                gateway_name = subnet["name"] + "-gw"
-                gateway = createpublicgateway(gateway_name, zone_name, vpc_id)
-                attachpublicgateway(gateway['id'], resp.json()["id"])
-            else:
-                # Check subnet status first as not attaching gateway..waiting up to 30 seconds
-                count = 0
-                while count < 12:
-                    resp = requests.get(rias_endpoint + '/v1/subnets/' + newsubnet["id"] + version, headers=headers);
-                    subnet_status = json.loads(resp.content)["status"]
-                    if subnet_status == "available":
-                        break
-                    else:
-                        print(
-                            "Waiting for subnet creation to complete before proceeding.   Sleeping for 5 seconds...")
-                        count += 1
-                        time.sleep(5)
-                print(
-                    "Subnet %s creation to complete before proceeding." % subnet["name"])
         return newsubnet["id"]
     elif resp.status_code == 400:
         print("Invalid subnet template provided.")
@@ -693,6 +712,5 @@ headers = {"Authorization": iam_token}
 with open("topology.yaml", 'r') as stream:
     topology = yaml.load(stream)[0]
 
-#print (json.dumps(topology, indent=4))
 
 main()
