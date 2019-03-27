@@ -38,13 +38,13 @@ runcmd:
  - wget -O- https://repo.logdna.com/logdna.gpg | sudo apt-key add -
  - sudo apt-get update
  - sudo apt-get install logdna-agent < "/dev/null"
- - sudo logdna-agent -k cfb5a2306a83917968afc44d4691cf6b
+ - sudo logdna-agent -k logdna_key
  - sudo logdna-agent -s LOGDNA_APIHOST=api.us-south.logging.cloud.ibm.com
  - sudo logdna-agent -s LOGDNA_LOGHOST=logs.us-south.logging.cloud.ibm.com
  - sudo logdna-agent -t webapp-demo
  - sudo update-rc.d logdna-agent defaults
  - sudo /etc/init.d/logdna-agent start
- - '\curl -sL https://ibm.biz/install-sysdig-agent | sudo bash -s -- -a 94563265-2cea-4c3a-938f-36539f8fa3ee -c ingest.us-south.monitoring.cloud.ibm.com --collector_port 6443 --secure true -ac "sysdig_capture_enabled: false" --tags role:vpctest'
+ - '\curl -sL https://ibm.biz/install-sysdig-agent | sudo bash -s -- -a sysdig_account -c ingest.us-south.monitoring.cloud.ibm.com --collector_port 6443 --secure true -ac "sysdig_capture_enabled: false" --tags role:vpctest'
  - sudo apt-get install unit unit-php unit-python2.7 unit-python3.5 unit-go unit-perl unit-ruby unit-dev unit-jsc-common unit-jsc8 unit-php --yes
  - sudo curl -X PUT --data-binary @/usr/share/doc/unit-php/examples/unit.config --unix-socket /run/control.unit.sock http://localhost/config
 
