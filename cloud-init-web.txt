@@ -16,14 +16,8 @@ packages:
 - supervisor
 - python-pip
 - python3-pip
-- apache2
-- mysql-client
-- php7.0
-- php7.0-mysql
-- libapache2-mod-php7.0
-- php7.0-cli
-- php7.0-cgi
-- php7.0-gd
+- nginx
+
 
 runcmd:
  - echo "deb https://repo.logdna.com stable main" | sudo tee /etc/apt/sources.list.d/logdna.list
