@@ -1,34 +1,34 @@
 -
-  vpc: ecommerce-vpc
-  region: us-south
+  vpc: e-commerce-demo
+  region: eu-de
   classic_access: false
   resource_group: default
   default_network_acl: ecommerce-vpc-acl
   address_prefix:
     -
       name: ecommerce-vpc-zone-1
-      zone: us-south-1
+      zone: eu-de-1
       cidr: 172.16.0.0/18
     -
       name: ecommerce-vpc-zone-2
-      zone: us-south-2
+      zone: eu-de-2
       cidr: 172.16.64.0/18
     -
       name: ecommerce-vpc-zone-3
-      zone: us-south-3
+      zone: eu-de-3
       cidr: 172.16.128.0/18
   zones:
     -
-      name: us-south-1
+      name: eu-de-1
       subnets:
         -
-          name: web-tier-us-south-1
+          name: web-tier-eu-de-1
           ipv4_cidr_block: 172.16.0.0/24
           network_acl: ecommerce-vpc-acl
           publicGateway: true
           instances:
             -
-              name: web%02d-us-south-1
+              name: web%02d-eu-de-1
               quantity: 1
               template: web_server
               floating_ip: true
@@ -39,13 +39,13 @@
                   lb_pool: nginx-http
                   listen_port: 80
         -
-          name: app-tier-us-south-1
+          name: app-tier-eu-de-1
           ipv4_cidr_block: 172.16.16.0/24
           network_acl: ecommerce-vpc-acl
           publicGateway: true
           instances:
             -
-              name: app%02d-us-south-1
+              name: app%02d-eu-de-1
               quantity: 1
               template: app_server
               floating_ip: false
@@ -59,29 +59,17 @@
                   lb_name: ecommerce-vpc-apptier-lb01
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-1
-          ipv4_cidr_block: 172.16.32.0/24
-          network_acl: ecommerce-vpc-acl
-          publicGateway: true
-          instances:
-            -
-              name: db%02d-us-south-1
-              quantity: 1
-              template: app_server
-              floating_ip: false
-              security_group: ecommerce-vpc-dbtier
     -
-      name: us-south-2
+      name: eu-de-2
       subnets:
         -
-          name: web-tier-us-south-2
+          name: web-tier-eu-de-2
           ipv4_cidr_block: 172.16.64.0/24
           publicGateway: true
           network_acl: ecommerce-vpc-acl
           instances:
             -
-              name: web%02d-us-south-2
+              name: web%02d-eu-de-2
               quantity: 1
               template: web_server
               floating_ip: true
@@ -92,13 +80,13 @@
                   lb_pool: nginx-http
                   listen_port: 80
         -
-          name: app-tier-us-south-2
+          name: app-tier-eu-de-2
           ipv4_cidr_block: 172.16.80.0/24
           network_acl: ecommerce-vpc-acl
           publicGateway: true
           instances:
             -
-              name: app%02d-us-south-2
+              name: app%02d-eu-de-2
               quantity: 1
               template: app_server
               floating_ip: false
@@ -112,29 +100,18 @@
                   lb_name: ecommerce-vpc-apptier-lb01
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-2
-          ipv4_cidr_block: 172.16.96.0/24
-          network_acl: ecommerce-vpc-acl
-          publicGateway: true
-          instances:
-            -
-              name: db%02d-us-south-2
-              quantity: 1
-              template: app_server
-              floating_ip: false
-              security_group: ecommerce-vpc-dbtier
+
     -
-      name: us-south-3
+      name: eu-de-3
       subnets:
         -
-          name: web-tier-us-south-3
+          name: web-tier-eu-de-3
           ipv4_cidr_block: 172.16.128.0/24
           network_acl: ecommerce-vpc-acl
           publicGateway: true
           instances:
             -
-              name: web%02d-us-south-3
+              name: web%02d-eu-de-3
               quantity: 1
               template: web_server
               floating_ip: true
@@ -145,13 +122,13 @@
                   lb_pool: nginx-http
                   listen_port: 80
         -
-          name: app-tier-us-south-3
+          name: app-tier-eu-de-3
           ipv4_cidr_block: 172.16.144.0/24
           network_acl: ecommerce-vpc-acl
           publicGateway: true
           instances:
             -
-              name: app%02d-us-south-3
+              name: app%02d-eu-de-3
               quantity: 1
               template: app_server
               floating_ip: false
@@ -165,25 +142,14 @@
                   lb_name: ecommerce-vpc-apptier-lb01
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-3
-          ipv4_cidr_block: 172.16.160.0/24
-          network_acl: ecommerce-vpc-acl
-          publicGateway: true
-          instances:
-             -
-              name: db%02d-us-south-3
-              quantity: 1
-              template: app_server
-              floating_ip: false
-              security_group: ecommerce-vpc-dbtier
+
   load_balancers:
     -
       lbInstance: ecommerce-vpc-webtier-lb01
       is_public: true
       subnets:
-        - web-tier-us-south-1
-        - web-tier-us-south-2
+        - web-tier-eu-de-1
+        - web-tier-eu-de-2
       listeners:
         -
           protocol: http
@@ -205,8 +171,8 @@
       lbInstance: ecommerce-vpc-apptier-lb01
       is_public: false
       subnets:
-        - app-tier-us-south-1
-        - app-tier-us-south-2
+        - app-tier-eu-de-1
+        - app-tier-eu-de-2
       listeners:
         -
           protocol: http
@@ -237,22 +203,23 @@
             max_retries: 2
             timeout: 2
             url_path: /
+
   instanceTemplates:
     -
       template: web_server
       image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
       profile_name: c-2x4
-      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
-      cloud-init-file: cloud-init.txt
+      sshkey_id: 636f6d70-0000-0001-0000-000000150ea7
+      cloud-init-file: cloud-init-web.txt
     -
       template: app_server
       image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
       profile_name: c-4x8
-      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
-      cloud-init-file: cloud-init.txt
+      sshkey_id: 636f6d70-0000-0001-0000-000000150ea7
+      cloud-init-file: cloud-init-app.txt
     -
       template: db_server
       image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
-      profile_name: m-8x32
-      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
+      profile_name: c-2x4
+      sshkey_id: 636f6d70-0000-0001-0000-000000150ea7
       cloud-init-file: cloud-init.txt
