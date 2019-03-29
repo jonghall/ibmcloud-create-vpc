@@ -247,7 +247,7 @@
     -
       template: app_server
       image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
-      profile_name: c-4x7
+      profile_name: c-4x8
       sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
       cloud-init-file: cloud-init.txt
     -
