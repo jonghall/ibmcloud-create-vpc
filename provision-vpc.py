@@ -301,6 +301,7 @@ def createvpc():
                         quit()
                     else:
                         # error stop execution
+                        print (json.dumps(parms,indent=4))
                         print("%s Error." % resp.status_code)
                         print("Error Data:  %s" % json.loads(resp.content)['errors'])
                         quit()
@@ -340,7 +341,7 @@ def createaddressprefix(vpc_id, name, zone, cidr):
              "cidr": cidr
              }
 
-    resp = requests.post(rias_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes?' + version, json=parms, headers=headers)
+    resp = requests.post(rias_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes' + version, json=parms, headers=headers)
 
     if resp.status_code == 201:
         prefix_id = resp.json()["id"]
@@ -485,7 +486,8 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
         quit()
     else:
         # error stop execution
-        print("%s Error." % resp.status_code)
+        print(parms)
+        print("%s Error creating instance." % resp.status_code)
         print("Error Data:  %s" % json.loads(resp.content)['errors'])
         quit()
     return
