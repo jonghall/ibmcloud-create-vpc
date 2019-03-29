@@ -46,6 +46,7 @@ runcmd:
  - sudo /etc/init.d/logdna-agent start
  - '\curl -sL https://ibm.biz/install-sysdig-agent | sudo bash -s -- -a 94563265-2cea-4c3a-938f-36539f8fa3ee -c ingest.us-south.monitoring.cloud.ibm.com --collector_port 6443 --secure true -ac "sysdig_capture_enabled: false" --tags role:vpctest'
  - sudo apt-get install unit unit-php unit-python2.7 unit-python3.5 unit-go unit-perl unit-ruby unit-dev unit-jsc-common unit-jsc8 unit-php --yes
+ - sudo service unit restart
  - sudo curl -X PUT --data-binary @/usr/share/doc/unit-php/examples/unit.config --unix-socket /run/control.unit.sock http://localhost/config
 
 
