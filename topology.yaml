@@ -29,7 +29,7 @@
           instances:
             -
               name: web%02d-us-south-1
-              quantity: 2
+              quantity: 1
               template: web_server
               floating_ip: true
               security_group: ecommerce-vpc-webtier

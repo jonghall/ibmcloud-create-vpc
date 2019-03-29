@@ -714,13 +714,8 @@ headers = {"Authorization": iam_token}
 # Read desired topology YAML file
 #####################################
 
-with open("topology-working.yaml", 'r') as stream:
+with open("topology.yaml", 'r') as stream:
     topology = yaml.load(stream)[0]
-
-# Endpoints as of 3/29/19
-#jp-tok     https://jp-tok.iaas.cloud.ibm.com     available
-#eu-de      https://eu-de.iaas.cloud.ibm.com      available
-#us-south   https://us-south.iaas.cloud.ibm.com   available
 
 
 # Determine if region identified is available and get endpoint
