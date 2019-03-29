@@ -100,15 +100,17 @@ instances:
               template: web_server
               floating_ip: true
               security_group: jonhall-vpctest01-webtier
-              lb_name: my-lb01
-              lb_pool: http-app1
-              listen_port: 80
+              in_lb_pool:
+                -
+                  lb_name: ecommerce-vpc-webtier-lb01
+                  lb_pool: nginx-http
+                  listen_port: 80
 ```
 Instance name will be derived from the text provided ub the "name" parameter.   Use %02d to represent numeric number which will
 be generated sequentially during provisioning.    The number of instances provisioned in the specified subnet is determined
 by the Quantity parameter, and the template specified must match a instanceTemplate defined elsewhere in the yaml file.
 
-If the instances will be added to a load balancer pool specify the lb_name and lb_pool for the desired load balancer.  Additionally specify the port for which the application will run on using the listen_port paramter.
+If the instances will be added to a load balancer pool using "in_lib_pool" specify the lb_name and lb_pool for the desired load balancer.  Additionally specify the port for which the application will run on using the listen_port paramter.  You may specify multiple Load Balancers and pools.
 
 Multiple instance types can be configured in each subbet.
 
@@ -118,29 +120,28 @@ The Load Balancer characteristics, location of load balancer nodes, listeners, p
 
 ```
 load_balancers:
-    -
-      lbInstance: jonhall-vpctest01-webtier-lb01
-      is_public: true
+      lbInstance: ecommerce-vpc-apptier-lb01
+      is_public: false
       subnets:
-        - web-tier-us-south-1
-        - web-tier-us-south-2
+        - app-tier-us-south-1
+        - app-tier-us-south-2
       listeners:
         -
           protocol: http
-          port: 80
+          port: 8090
           connection_limit: 100
-          default_pool_name: http-app1
+          default_pool_name: index_php_upstream
       pools:
-        -
-          name: http-app1
+        - name: index_php_upstream
           protocol: http
-          algorithm: round_robin
+          algorithm: least_connections
           health_monitor:
             type: http
             delay: 5
             max_retries: 2
             timeout: 2
             url_path: /
+
 ```
 
 ### Execute Script

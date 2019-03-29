@@ -8,12 +8,13 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
-def main():
-    # Determine if region identified is available
-    region = getregionavailability(topology["region"])
+def main(region):
 
     # Get Zones for specified region
     zones = getzones(topology['region'])
+
+    for zone in zones:
+        print ("Zone %s is available in region %s" % (zone["name"], region))
 
     # Create VPC
     vpc_name = topology["vpc"]
@@ -583,6 +584,8 @@ def createloadbalancer(lb):
 
     # Create pool template for use in creating load balancer
     poolTemplate=[]
+
+    # create multiple pools
     for pool in lb["pools"]:
 
         # Create Heath Monitor Template for Pool
@@ -594,7 +597,7 @@ def createloadbalancer(lb):
                                 }
 
 
-        # Determine whuch members are in the  pool
+        # Determine whuch members are in this pool
         memberTemplate = []
         for zone in topology["zones"]:
             for subnet in zone["subnets"]:
@@ -605,18 +608,20 @@ def createloadbalancer(lb):
                 if resp.status_code == 200:
                     instancelist = json.loads(resp.content)["instances"]
                 for instance in subnet["instances"]:
-                    if "lb_name" in instance:
+                    if "in_lb_pool" in instance:
                         # Check if this instance is marked for this LB and pool and if so append instances to member template
-                        if len(instancelist) > 0 and instance["lb_name"] == lb["lbInstance"] and instance["lb_pool"] == pool["name"]:
-                            # iterate through quantity to find each instance
-                            for count in range(1,instance["quantity"]+1):
-                                name = (instance["name"] % count)
-                                # search by instance name to get ipv4 address, and add as member.
-                                instanceinfo = list(filter(lambda i: i['name'] == name, instancelist))
-                                if len(instanceinfo) > 0:
-                                    memberTemplate.append({"port": instance["listen_port"],
-                                                           "target": {"address": instanceinfo[0]["primary_network_interface"]["primary_ipv4_address"]},
-                                                           "weight": 100})
+                        if len(instancelist) > 0:
+                            for in_lb_pool in instance["in_lb_pool"]:
+                                if (in_lb_pool["lb_name"] == lb["lbInstance"]) and (in_lb_pool["lb_pool"] == pool["name"]):
+                                    # iterate through quantity to find each instance
+                                    for count in range(1,instance["quantity"]+1):
+                                        name = (instance["name"] % count)
+                                        # search by instance name to get ipv4 address, and add as member.
+                                        instanceinfo = list(filter(lambda i: i['name'] == name, instancelist))
+                                        if len(instanceinfo) > 0:
+                                            memberTemplate.append({"port": in_lb_pool["listen_port"],
+                                                                   "target": {"address": instanceinfo[0]["primary_network_interface"]["primary_ipv4_address"]},
+                                                                   "weight": 100})
         # sessions persistence specified for pool add to pool template.
         if "session_persistence" in pool:
             session_persistence = pool["session_persistence"]
@@ -644,31 +649,31 @@ def createloadbalancer(lb):
                     subnet = {"id": subnet_id[0]["id"]}
                     subnet_list.append(subnet)
 
-        # Build load balancer using templates just created.
-        parms = {"name": lb["lbInstance"],
-                 "is_public": lb['is_public'],
-                 "subnets": subnet_list,
-                 "listeners": listenerTemplate,
-                 "pools": poolTemplate
-                 }
+    # Build load balancer using templates just created.
+    parms = {"name": lb["lbInstance"],
+             "is_public": lb['is_public'],
+             "subnets": subnet_list,
+             "listeners": listenerTemplate,
+             "pools": poolTemplate
+             }
 
-        resp = requests.post(rias_endpoint + '/v1/load_balancers' + version, json=parms, headers=headers)
+    resp = requests.post(rias_endpoint + '/v1/load_balancers' + version, json=parms, headers=headers)
 
-        if resp.status_code == 201:
-            load_balancer = resp.json()
-            print("Created %s (%s) load balancer successfully." % (lb["lbInstance"], load_balancer["id"]))
-            return (load_balancer["id"])
-        elif resp.status_code == 400:
-            print("Invalid instance template provided.")
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
-        else:
-            # error stop execution
-            print("%s Error." % resp.status_code)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
-        return
+    if resp.status_code == 201:
+        load_balancer = resp.json()
+        print("Created %s (%s) load balancer successfully." % (lb["lbInstance"], load_balancer["id"]))
+        return (load_balancer["id"])
+    elif resp.status_code == 400:
+        print("Invalid instance template provided.")
+        print("template=%s" % parms)
+        print("Error Data:  %s" % json.loads(resp.content)['errors'])
+        quit()
+    else:
+        # error stop execution
+        print("%s Error." % resp.status_code)
+        print("Error Data:  %s" % json.loads(resp.content)['errors'])
+        quit()
+    return
 
 
 def encodecloudinit(filename):
@@ -713,4 +718,12 @@ with open("topology.yaml", 'r') as stream:
     topology = yaml.load(stream)[0]
 
 
-main()
+# Determine if region identified is available and get endpoint
+region = getregionavailability(topology["region"])
+
+if region["status"] == "available":
+    rias_endpoint = region["endpoint"]
+    main(region["name"])
+else:
+    print ("Region %s is not currently available." % region["name"])
+    quit()

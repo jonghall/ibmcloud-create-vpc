@@ -2,5 +2,8 @@
 /.gitignore
 /iam_token
 /topology.json
-/topology_old.yaml
 /.idea
+/topology-working.yaml
+/wordpress.tar.gz
+/inventory.txt
+/deploy-wordpress.yaml
