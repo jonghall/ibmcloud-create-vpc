@@ -224,4 +224,4 @@ Once complete execute the Python code to build the specified VPC and required ap
 ## Known Limitations  
 - Only one VPC can be defined in YAML file
 - Only parameters shown in YAML file are currently supported
-- If objects already exist, script will not recreate and does not evaluate a change.
+- If objects already exist, script will not recreate the object and therefore does not evaluate if changes exist.   You must manually delete prior to execution of script if you want the changes to be implemented.
