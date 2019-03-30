@@ -161,7 +161,7 @@ Once complete execute the Python code to build the specified VPC and required ap
 ./provision-vpc.py
 ```
 
-## Known Limitations
-- ACL's and Security Groups must exist.  References are matched based on names and assigned to resources.   
+## Known Limitations  
 - Only one VPC can be defined in YAML file
 - Only parameters shown in YAML file are currently supported
+- If objects already exist, script will not recreate and does not evaluate a change.

@@ -256,3 +256,86 @@
       profile_name: m-8x32
       sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
       cloud-init-file: cloud-init.txt
+  security_groups:
+    -
+      security_group: ecommerce-vpc-webtier
+      rules:
+         -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.0.0/24
+         -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.64.0/24
+         -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.128.0/24
+         -
+          direction: outbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 0.0.0.0/0
+     -
+      security_group: ecommerce-vpc-apptier2
+      rules:
+        -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.16.0/24
+         -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.80.0/24
+        -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.144.0/24
+        -
+          direction: inbound
+          ip_version: ipv4
+          port_min: 8090
+          port_max: 8091
+          protocol: tcp
+          remote:
+            security_group: ecommerce-vpc-webtier
+        -
+          direction: outbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 0.0.0.0/0
+    network_acls:
+      - network_acl: ecommerce-vpc-default-acl
+        rules:
+          - name: allow-all-in
+            direction: inbound
+            action: allow
+            source: 0.0.0.0/0
+            destination: 0.0.0.0/0
+          - name: allow-all-out
+            direction: outbound
+            action: allow
+            source: 0.0.0.0/0
+            destination: 0.0.0.0/0
+
+
+
+
+
+
+

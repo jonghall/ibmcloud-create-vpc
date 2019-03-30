@@ -16,15 +16,21 @@ def main(region):
     for zone in zones:
         print ("Zone %s is available in region %s" % (zone["name"], region))
 
+    # Create Network acls
+    for network_acl in topology["network_acls"]:
+        createnetworkacl(network_acl)
+
     # Create VPC
     vpc_name = topology["vpc"]
     vpc_id = createvpc()
 
-    # If new vpc-address-prefixes provided create
-
+    # Create vpc-address-prefixes
     for prefix in topology['address_prefix']:
         createaddressprefix(vpc_id, prefix['name'], prefix['zone'], prefix['cidr'])
 
+    # Create VPC's security groups
+    for security_group in topology['security_groups']:
+        createsecuritygroup(security_group, vpc_id)
 
     #######################################################################
     # Iterate through subnets in each zone and create subnets & instances
@@ -92,7 +98,6 @@ def main(region):
 
     return
 
-
 def getzones(region):
     #############################
     # Get list of zones in Region
@@ -112,7 +117,6 @@ def getzones(region):
         print("Error Data:  %s" % json.loads(resp.content)['errors'])
         quit()
     return
-
 
 def getregionavailability(region):
     #############################
@@ -135,7 +139,6 @@ def getregionavailability(region):
         print("Error Data:  %s" % json.loads(resp.content)['errors'])
         quit()
     return
-
 
 def getnetworkaclid(network_acl_name):
     ################################################
@@ -177,6 +180,123 @@ def getsecuritygroupid(security_group, vpc_id):
 
     return security_group_id
 
+def createnetworkacl(network_acl):
+    ################################################
+    ## create network acl
+    ################################################
+
+    # check if ACL already exists by checking for id
+    if getnetworkaclid(network_acl["network_acl"]) == 0:
+        # Network ACLS does not exist create it
+
+        rules =[]
+        for rule in network_acl['rules']:
+            new_rule = {
+                "name": rule["name"],
+                "action": rule["action"],
+                "direction": rule["direction"],
+                "source": rule["source"],
+                "destination": rule["destination"]
+            }
+
+            if "port_min" in rule:
+                new_rule["port_min"] = rule["port_min"]
+            if "port_max" in rule:
+                new_rule["port_max"] = rule["port_max"]
+
+            rules.append(new_rule)
+
+        parms = {
+            "name": network_acl["network_acl"],
+            "rues": rules,
+            }
+
+        resp = requests.post(rias_endpoint + '/v1/network_acls' + version, json=parms, headers=headers)
+
+        if resp.status_code == 201:
+            network_acl = resp.json()
+            print("Network ACL %s (%s) was created successfully." % (network_acl["name"],network_acl["id"]))
+            return
+        elif resp.status_code == 400:
+            print("Invalid network_acl template provided.")
+            print("template=%s" % json.dumps(parms,indent=4))
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+        else:
+            # error stop execution
+            print("%s Error creating network acls." % (resp.status_code, zone_name))
+            print("template=%s" % parms)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+    else:
+        # Network ACL already exists.  do no recreate
+        print("Network ACL %s already exists. Continuing." % (network_acl["network_acl"]))
+        return
+
+def createsecuritygroup(security_group, vpc_id):
+    ################################################
+    ## create security group
+    ################################################
+
+    # check if security group already exists by checking for id
+    if getsecuritygroupid(security_group["security_group"], vpc_id) == 0:
+        # security group does not exist create it
+
+        rules =[]
+        for rule in security_group['rules']:
+            new_rule =  {
+                "direction": rule["direction"],
+                "ip_version": rule["ip_version"],
+                "protocol": rule["protocol"]
+            }
+
+            if "port_min" in rule:
+                new_rule["port_min"] =  rule["port_min"]
+            if "port_max" in rule:
+                new_rule["port_max"] =  rule["port_max"]
+
+            # determine what kind of rule this is
+            new_rule["remote"]={}
+            if "cidr_block" in rule["remote"]:
+                new_rule["remote"]["cidr_block"] = rule["remote"]["cidr_block"]
+            elif "address" in rule["remote"]:
+                new_rule["remote"]["address"] = rule["remote"]["address"]
+            elif "security_group" in rule["remote"]:
+                # get remote security group id
+                new_rule["remote"]["id"] = getsecuritygroupid(rule["remote"]["security_group"], vpc_id)
+            else:
+                print ("Invalid remote rule type (%s) for security group." % (rule["remote"]))
+                quit()
+
+            rules.append(new_rule)
+
+        parms = {
+            "name": security_group["security_group"],
+            "rules": rules,
+            "vpc": {"id": vpc_id}
+            }
+        resp = requests.post(rias_endpoint + '/v1/security_groups' + version, json=parms, headers=headers)
+
+        if resp.status_code == 201:
+            security_group = resp.json()
+            print("Security Group %s (%s) was created successfully." % (security_group["name"],security_group["id"]))
+            return
+        elif resp.status_code == 400:
+            print("Invalid security_group template provided.")
+            print("template=%s" % parms)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+        else:
+            # error stop execution
+            print("%s Error creating security group." % (resp.status_code))
+            print("template=%s" % parms)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+    else:
+        # Security group already exists.  do no recreate
+        print("Security Group %s already exists. Continuing." % (security_group["security_group"]))
+        return
+
 def createpublicgateway(gateway_name, zone_name, vpc_id):
     #################################
     # Create a public gateway
@@ -205,7 +325,6 @@ def createpublicgateway(gateway_name, zone_name, vpc_id):
         print("Error Data:  %s" % json.loads(resp.content)['errors'])
         quit()
     return
-
 
 def attachpublicgateway(gateway_id, subnet_id):
     #################################
@@ -250,7 +369,6 @@ def attachpublicgateway(gateway_id, subnet_id):
         quit()
 
     return
-
 
 def createvpc():
     ##################################
@@ -319,7 +437,6 @@ def createvpc():
         print("%s Error getting list of vpcs for region %s." % (resp.status_code, topology['region']))
         quit()
     return
-
 
 def createaddressprefix(vpc_id, name, zone, cidr):
     ################################################
@@ -716,7 +833,7 @@ headers = {"Authorization": iam_token}
 # Read desired topology YAML file
 #####################################
 
-with open("topology.yaml", 'r') as stream:
+with open("topology-working.yaml", 'r') as stream:
     topology = yaml.load(stream)[0]
 
 
