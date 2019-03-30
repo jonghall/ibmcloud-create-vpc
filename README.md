@@ -83,9 +83,9 @@ Within each subnet instances can be provisioned.  To faciliate consistent provis
   instanceTemplates:
     -
       template: web_server
-      image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
+      image: ubuntu-16.04-amd64
       profile_name: c-2x4
-      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
+      sshkey: my-ssh-key 
       cloud-init-file: cloud-init.txt
 ```
 The instanceTemplates will be used during provisioning and sets the values used for each of the instances requested.
@@ -96,13 +96,21 @@ To identify available profiles in each region:
 ```
 ibmcloud is instance-profiles
 ```
-Images determine the cloud-init image to use for provisioning.  Include the image_id.  To identify available images
+Image must be a valid image name.  To determine the images available to use for provisioning.  
 ```
 ibmcloud is images
 ```
-To list the ssh_key's in your account
+The sshkey must be a valid sshkey defined in the account.  To list the ssh_key's in your region
 ```
 ibmcloud is keys
+```
+# SSH Keys
+You may define multiple SSH keys to be created by adding the following section to the YAML file.  You can then reference these keys in the instanceTemplates section.
+```
+   sshkeys:
+      -
+        sshkey: my-ssh-key
+        public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
 ```
 # Security Groups
 Security Groups define the egress and ingress traffic from each virtual server instance.   Security Groups can be defined in the security_groups section of the YAML file and are referenced during creation of instances.   Multiple inbound and outbound rules can be defined.   Security group rules can reference CIDR Blocks, Single IP addresses, or other Security Groups.   Security groups are generally fine grained and control traffic flow between and accross tiers of an application topology.
