@@ -240,21 +240,21 @@
   instanceTemplates:
     -
       template: web_server
-      image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
+      image: ubuntu-16.04-amd64
       profile_name: c-2x4
-      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
+      sshkey: my-ssh-key
       cloud-init-file: cloud-init.txt
     -
       template: app_server
-      image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
+      image: ubuntu-16.04-amd64
       profile_name: c-4x8
-      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
+      sshkey: my-ssh-key
       cloud-init-file: cloud-init.txt
     -
       template: db_server
-      image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
+      image: ubuntu-16.04-amd64
       profile_name: m-8x32
-      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
+      sshkey: my-ssh-key
       cloud-init-file: cloud-init.txt
   security_groups:
     -
@@ -332,6 +332,9 @@
             action: allow
             source: 0.0.0.0/0
             destination: 0.0.0.0/0
+    sshkeys:
+      - sshkey: my-ssh-key
+        public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
 
 
 
