@@ -1,17 +1,17 @@
 ## IBMCLOUD-CREATE-VPC
-A typical requirement for a Virtual Private Cloud is the ability to logically isolate a public cloud into different private networks made up tiers and different applications environments.   This Python program reads a yaml based topology configuration file and instantiates the specified VPC, subnets, compute resources and the required public and private load balancers accross the desired availability zones within a region to standup the application topology.
+A typical requirement for a Virtual Private Cloud is the ability to logically isolate a public cloud into different private networks made up tiers and/or different applications environments.   This Python script reads a yaml based topology configuration file and instantiates the specified VPC, security-groups, network acls, subnets, compute resources and the required public and private load balancers accross the desired availability zones within the region specified to standup the application topology withouht manually creating it.
 
 This approach allows for templating and consistency between application tiers, subnets, zones, and regions avoiding the need to manually define resources via a portal or CLI and avoiding the need to create your own provisioning scripts.
 
 ## Typical Application Topology
-A typical Ecommerce web app deployed accross 3 zones consisting of 3 segmented network tiers using IBM Cloud Object Storage for images/media, IBM Cloud Databases for Redis for application cache, and VPN for on-premise API services.  Separate VPCs are created to completely isolate PROD from DEV.  DEV also consists of a utility server for DevOps with VPN connectivity between VPCs.
+A typical Ecommerce web app deployed accross 3 zones consisting of 3 segmented network tiers using IBM Cloud Object Storage for images/media, IBM Cloud Databases such as MySQL or Redis for application databases and cache, and a VPN for on-premise API services.  Separate VPCs are created to completely isolate PROD from DEV environments.  
 
 ![](topology.png?raw=true)
 
 ## Configuring your VPC topology
 The topology is configured using standard YAML format
 
-Within the yaml file define the VPC name, region location, and characteristics.
+The first step is to define within the yaml file the VPC name, region location, and characteristics of the vpc.
 ```
 -
   vpc: vpcname
@@ -20,7 +20,24 @@ Within the yaml file define the VPC name, region location, and characteristics.
   resource_group: default
   default_network_acl: vpc-acl
 ```
-Next for each VPC you will define your IP CDIR block for each of the availability zones you will plan.   In the example below a netmask of /18 is used to define the IP Address space for each of the availability zones in the US South region. 
+Referenced by the VPC is the default network ACL to use.   You can specify one that exists already, or define one within the YAML file.  The default network ACL is used as the default for all subnets created later and controls both ingress and egress traffic out of the subnets.   
+```
+-
+    network_acls:
+      - network_acl: ecommerce-vpc-default-acl
+        rules:
+          - name: allow-all-in
+            direction: inbound
+            action: allow
+            source: 0.0.0.0/0
+            destination: 0.0.0.0/0
+          - name: allow-all-out
+            direction: outbound
+            action: allow
+            source: 0.0.0.0/0
+            destination: 0.0.0.0/0
+```
+Next, if you prefer to use a different address prefix for your VPC you can define your IP CDIR block for each of the availability zones within the VPC created.   In the example below a netmask of /18 is used to define the IP Address space for each of the availability zones in the US South region. 
 
 ```
   address_prefix:
@@ -37,7 +54,7 @@ Next for each VPC you will define your IP CDIR block for each of the availabilit
       zone: us-south-3
       cidr: 172.16.128.0/18
 ```
-After you have defined the VPC, you must define the subnets required within each availability zone of the multi-zone region.  Subnet's are defined with CIDR block notation, and must be allocated out of the CIDR block defined previously for each availability zone.   Subnets can not overlap eachother.   Multiple subnets can be defined per zone.  However, only one subnet per zone can be configured for egress traffic via the PublicGateway: True parameter.
+After you have defined the VPC, you must define the subnets required within each availability zone of the multi-zone region.  Subnet's are defined with CIDR block notation, and must be allocated out of the CIDR block defined previously for each availability zone.   Subnets can not overlap eachother.   Multiple subnets can be defined per zone.  If egress traffic will be allowed to the public Internet specify  PublicGateway: true parameter.   A network_acl can be specified.   If it does not already exist, one can be created in the network_acls section of the YAML file.
 ```
  zones:
     -
@@ -50,8 +67,7 @@ After you have defined the VPC, you must define the subnets required within each
           publicGateway: true
 ```
 
-To identify the available regions, you need the Infrastructure Services plugin for the IBMCLOUD CLi.   More information can be found about installing
-the CLI and plugins at: [https://console.bluemix.net/docs/cli/index.html#overview](https://console.bluemix.net/docs/cli/index.html#overview)
+To identify the available regions, you need the Infrastructure Services plugin for the IBMCLOUD CLi.   More information can be found about installing the CLI and plugins at: [https://console.bluemix.net/docs/cli/index.html#overview](https://console.bluemix.net/docs/cli/index.html#overview)
 ```
 ibmcloud login --sso
 ibmcloud is regions
@@ -61,16 +77,15 @@ To identify the available zones within a region.
 ibmcloud login --sso
 ibmcloud is regions region_name
 ```
-Within each subnet instances can be provisioned.  To faciliate consistent provisioning of virtual services a template must first be defined for each server type.   Within each template you will define  the base OS image id to use, the ssh key ID to use, and the type of virtual server profile to use.   Last within each template you can specify a cloud-init post installation script to be deployed.  The cloud-init
-file must begin with a #cloud-config and will be properly encoded and passed via the user_data parameter during the provisioning process.
+Within each subnet instances can be provisioned.  To faciliate consistent provisioning of virtual instances a template must first be defined for each server type you wish to provision.   Within each template you will define the base OS image id to use, the ssh key ID to use, and the type of virtual server profile to use.   Last within each template you can specify a cloud-init post installation script to be deployed.  The cloud-init file must begin with a #cloud-config and will be properly encoded and passed via the user_data parameter during the provisioning process and executed during the provisioning process.
 
 ```
   instanceTemplates:
     -
       template: web_server
-      image_id: 7eb4e35b-4257-56f8-d7da-326d85452591
+      image: ubuntu-16.04-amd64
       profile_name: c-2x4
-      sshkey_id: 636f6d70-0000-0001-0000-00000014ba47
+      sshkey: my-ssh-key 
       cloud-init-file: cloud-init.txt
 ```
 The instanceTemplates will be used during provisioning and sets the values used for each of the instances requested.
@@ -81,42 +96,87 @@ To identify available profiles in each region:
 ```
 ibmcloud is instance-profiles
 ```
-Images determine the cloud-init image to use for provisioning.  Include the image_id.  To identify available images
+Image must be a valid image name.  To determine the images available to use for provisioning.  
 ```
 ibmcloud is images
 ```
-To list the ssh_key's in your account
+The sshkey must be a valid sshkey defined in the account.  To list the ssh_key's in your region
 ```
 ibmcloud is keys
 ```
-After instanceTemplates have been defined within each subnet resource you can specify the quantity of each server type, the naming template, and whether the server should be added to a load balancer pool after provisioning.  
-
-To provision instances, include the instances section in the desired subnet sections of the YAML file by including the following text.
+# SSH Keys
+You may define multiple SSH keys to be created by adding the following section to the YAML file.  You can then reference these keys in the instanceTemplates section.
 ```
-instances:
-            -
-              name: web%02d-zone1.mydomain.com
-              quantity: 4
-              template: web_server
-              floating_ip: true
-              security_group: jonhall-vpctest01-webtier
-              in_lb_pool:
-                -
-                  lb_name: ecommerce-vpc-webtier-lb01
-                  lb_pool: nginx-http
-                  listen_port: 80
+   sshkeys:
+      -
+        sshkey: my-ssh-key
+        public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
 ```
-Instance name will be derived from the text provided ub the "name" parameter.   Use %02d to represent numeric number which will
-be generated sequentially during provisioning.    The number of instances provisioned in the specified subnet is determined
-by the Quantity parameter, and the template specified must match a instanceTemplate defined elsewhere in the yaml file.
+# Security Groups
+Security Groups define the egress and ingress traffic from each virtual server instance.   Security Groups can be defined in the security_groups section of the YAML file and are referenced during creation of instances.   Multiple inbound and outbound rules can be defined.   Security group rules can reference CIDR Blocks, Single IP addresses, or other Security Groups.   Security groups are generally fine grained and control traffic flow between and accross tiers of an application topology.
 
-If the instances will be added to a load balancer pool using "in_lib_pool" specify the lb_name and lb_pool for the desired load balancer.  Additionally specify the port for which the application will run on using the listen_port paramter.  You may specify multiple Load Balancers and pools.
+```
+  security_groups:
+    -
+      security_group: ecommerce-vpc-apptier2
+      rules:
+        -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.16.0/24
+         -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.80.0/24
+        -
+          direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.144.0/24
+        -
+          direction: inbound
+          ip_version: ipv4
+          port_min: 8090
+          port_max: 8091
+          protocol: tcp
+          remote:
+            security_group: ecommerce-vpc-webtier
+        -
+          direction: outbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 0.0.0.0/0
+```
+Within the zone and subnet section of the YAML file you define the actual virtual server instances to be provisioned in that subnet.   You specify a name template, the quantity required, the server template previously defined which will be used to provision the server, and the security group to attach to the network interface.  
+```
+    instances:
+      -
+        name: web%02d-zone1.mydomain.com
+        quantity: 4
+        template: web_server
+        floating_ip: true
+        security_group: jonhall-vpctest01-webtier
+        in_lb_pool:
+          -
+            lb_name: ecommerce-vpc-webtier-lb01
+            lb_pool: nginx-http
+            listen_port: 80
+```
+The instance name of each virtual server provisioned will be derived from the text provided in the "name" parameter.   Use %02d to represent a sequetial numeric number which will be generated sequentially during provisioning.
 
-Multiple instance types can be configured in each subbet.
+If the instances will need to be added to a load balancer pool use the "in_lib_pool" and specify the lb_name and lb_pool for the desired load balancer the instances will be added behind.  Additionally specify the port for which the application will run on using the listen_port paramter.  You may specify multiple Load Balancers and pools per instance.
 
-If the load balancers do not already exist within the VPC, the load balancer configuration can be specified in the load_balancers section of the YAML file under each VPC.
+Multiple instance types can be configured in each subnet.
 
-The Load Balancer characteristics, location of load balancer nodes, listeners, pools and health-monitors can be defined for multiple public and private load balancers.    Pool members are determined by the specifications within the instance section of each subnet.
+If the load balancers do not already exist within the VPC, the load balancer configuration should be specified in the load_balancers section of the YAML file and it will be created.
+
+Specify the Load Balancer characteristics, location of load balancer nodes, listeners, pools and health-monitors can be defined for multiple public and private load balancers.    Pool members are determined by the specifications within the instance section of each subnet.
 
 ```
 load_balancers:
@@ -164,4 +224,4 @@ Once complete execute the Python code to build the specified VPC and required ap
 ## Known Limitations  
 - Only one VPC can be defined in YAML file
 - Only parameters shown in YAML file are currently supported
-- If objects already exist, script will not recreate and does not evaluate a change.
+- If objects already exist, script will not recreate the object and therefore does not evaluate if changes exist.   You must manually delete prior to execution of script if you want the changes to be implemented.
