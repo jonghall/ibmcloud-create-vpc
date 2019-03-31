@@ -525,6 +525,11 @@ def createsubnet(vpc_id, zone_name, subnet):
             return subnet_id[0]["id"]
 
     network_acl_id = getnetworkaclid(subnet['network_acl'])
+
+    if network_acl_id == 0:
+        print("Network ACL named %s does not exists" % (subnet['network_acl']))
+        quit()
+
     parms = {"name": subnet["name"],
              "ipv4_cidr_block": subnet['ipv4_cidr_block'],
              "network_acl": {"id": network_acl_id},

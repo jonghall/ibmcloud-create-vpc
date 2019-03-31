@@ -3,7 +3,7 @@
   region: us-south
   classic_access: false
   resource_group: default
-  default_network_acl: ecommerce-vpc-acl
+  default_network_acl: ecommerce-vpc-default-acl
   address_prefix:
     -
       name: ecommerce-vpc-zone-1
@@ -24,7 +24,7 @@
         -
           name: web-tier-us-south-1
           ipv4_cidr_block: 172.16.0.0/24
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           publicGateway: true
           instances:
             -
@@ -41,7 +41,7 @@
         -
           name: app-tier-us-south-1
           ipv4_cidr_block: 172.16.16.0/24
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           publicGateway: true
           instances:
             -
@@ -62,7 +62,7 @@
         -
           name: db-tier-us-south-1
           ipv4_cidr_block: 172.16.32.0/24
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           publicGateway: true
           instances:
             -
@@ -78,7 +78,7 @@
           name: web-tier-us-south-2
           ipv4_cidr_block: 172.16.64.0/24
           publicGateway: true
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           instances:
             -
               name: web%02d-us-south-2
@@ -94,7 +94,7 @@
         -
           name: app-tier-us-south-2
           ipv4_cidr_block: 172.16.80.0/24
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           publicGateway: true
           instances:
             -
@@ -115,7 +115,7 @@
         -
           name: db-tier-us-south-2
           ipv4_cidr_block: 172.16.96.0/24
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           publicGateway: true
           instances:
             -
@@ -130,7 +130,7 @@
         -
           name: web-tier-us-south-3
           ipv4_cidr_block: 172.16.128.0/24
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           publicGateway: true
           instances:
             -
@@ -147,7 +147,7 @@
         -
           name: app-tier-us-south-3
           ipv4_cidr_block: 172.16.144.0/24
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           publicGateway: true
           instances:
             -
@@ -168,7 +168,7 @@
         -
           name: db-tier-us-south-3
           ipv4_cidr_block: 172.16.160.0/24
-          network_acl: ecommerce-vpc-acl
+          network_acl: ecommerce-vpc-default-acl
           publicGateway: true
           instances:
              -
@@ -284,7 +284,7 @@
           protocol: all
           remote:
             cidr_block: 0.0.0.0/0
-     -
+    -
       security_group: ecommerce-vpc-apptier2
       rules:
         -
