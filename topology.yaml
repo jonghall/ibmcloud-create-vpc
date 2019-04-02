@@ -293,7 +293,7 @@
           protocol: all
           remote:
             cidr_block: 172.16.16.0/24
-         -
+        -
           direction: inbound
           ip_version: ipv4
           protocol: all
@@ -319,26 +319,20 @@
           protocol: all
           remote:
             cidr_block: 0.0.0.0/0
-    network_acls:
-      - network_acl: ecommerce-vpc-default-acl
-        rules:
-          - name: allow-all-in
-            direction: inbound
-            action: allow
-            source: 0.0.0.0/0
-            destination: 0.0.0.0/0
-          - name: allow-all-out
-            direction: outbound
-            action: allow
-            source: 0.0.0.0/0
-            destination: 0.0.0.0/0
-    sshkeys:
-      - sshkey: my-ssh-key
-        public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
-
-
-
-
-
-
+  network_acls:
+    - network_acl: ecommerce-vpc-default-acl
+      rules:
+        - name: allow-all-in
+          direction: inbound
+          action: allow
+          source: 0.0.0.0/0
+          destination: 0.0.0.0/0
+        - name: allow-all-out
+          direction: outbound
+          action: allow
+          source: 0.0.0.0/0
+          destination: 0.0.0.0/0
+  sshkeys:
+    - sshkey: my-ssh-key
+      public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
 
