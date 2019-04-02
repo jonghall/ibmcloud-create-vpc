@@ -1,9 +1,0 @@
-/venv/
-/.gitignore
-/iam_token
-/topology.json
-/.idea
-/topology-working.yaml
-/wordpress.tar.gz
-/inventory.txt
-/deploy-wordpress.yaml
