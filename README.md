@@ -221,6 +221,11 @@ Once complete execute the Python code to build the specified VPC and required ap
 ./provision-vpc.py
 ```
 
+To destroy the VPC created, and systematically delete all objects in the YAML file run: 
+```
+./destroy-vpc.py
+```
+
 ## Known Limitations  
 - Only one VPC can be defined in YAML file
 - Only parameters shown in YAML file are currently supported
