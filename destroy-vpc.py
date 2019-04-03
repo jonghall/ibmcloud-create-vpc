@@ -3,7 +3,7 @@
 ## Author: Jon Hall
 ##
 
-import requests, json, time, sys, yaml, os
+import requests, json, time, yaml, argparse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -703,7 +703,15 @@ headers = {"Authorization": iam_token}
 # Read desired topology YAML file
 #####################################
 
-with open("topology-working.yaml", 'r') as stream:
+parser = argparse.ArgumentParser(description="Destroy VPC topology.")
+parser.add_argument("-y", "--yaml", help="YAML based topology file to destroy")
+args = parser.parse_args()
+if args.yaml is None:
+    filename = "topology.yaml"
+else:
+    filename = args.yaml
+
+with open(filename, 'r') as stream:
     topology = yaml.load(stream)[0]
 
 # Determine if region identified is available and get endpoint
