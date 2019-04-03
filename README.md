@@ -215,15 +215,15 @@ Alternatively you can run the provide script and the following command will requ
 ```
 ./gettoken
 ```
-Once complete execute the Python code to build the specified VPC and required application topology.   If elements of the VPC already exist, the script will identify the state and move to the next element.
+Once complete execute the Python code to build the specified VPC and required application topology.   If elements of the VPC already exist, the script will identify the state and move to the next element.   By default the script reads the topology.yaml file, but you can specify a different topology file by using --yaml filename.
 
 ```
-./provision-vpc.py
+./provision-vpc.py [--yaml filename]
 ```
 
 To destroy the VPC created, and systematically delete all objects in the YAML file run: 
 ```
-./destroy-vpc.py
+./destroy-vpc.py [--yaml filename]
 ```
 
 ## Known Limitations  
