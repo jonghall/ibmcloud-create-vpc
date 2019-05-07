@@ -223,7 +223,7 @@ Once complete execute the Python code to build the specified VPC and required ap
 
 To destroy the VPC created, and systematically delete all objects in the YAML file run: 
 ```
-./destroy-vpc.py
+./destroy-vpc.py [--yaml filename]
 ```
 
 ## Known Limitations  
