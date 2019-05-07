@@ -174,7 +174,7 @@
           network_acl: ecomm-dbtier-acl
           publicGateway: true
           instances:
-             - name: db%02d
+            - name: db%02d
               quantity: 1
                template: db_server
               floating_ip: false
