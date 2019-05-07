@@ -39,6 +39,13 @@ def main(region):
                 if subnet["publicGateway"]:
                     detachpublicgateway(subnet["name"])
 
+                if "vpn" in subnet:
+                    ## delete VPN
+                    for vpn in subnet["vpn"]:
+                        # delete each vpn instance
+                        vpn_id = getvpnid(vpn["name"])
+                        deletevpn(vpn_id, vpn["name"])
+
                 for instance in subnet["instances"]:
                     for q in range(1, instance["quantity"] + 1):
                         instance_name = (instance["name"] % q)
@@ -57,12 +64,10 @@ def main(region):
                 deletesubnet(subnet["name"])
             deletepublicgateway(zone["name"], vpc_name, vpc_id)
 
-        #######################################################################
-        # Delete Address Prefixes - assume not default
-        #######################################################################
-        print("- Deleting Address Prefixes from VPC -")
-        for addressprefix in topology["address_prefix"]:
-            deleteaddressprefix(vpc_id, addressprefix["name"], addressprefix['zone'])
+            if "address_prefix_cidr" in zone:
+                name = zone["name"] + "-address-prefix"
+                deleteaddressprefix(vpc_id, name, zone["name"])
+
 
         #######################################################################
         # Delete Security Groups
@@ -92,6 +97,26 @@ def main(region):
         deletesshkey(sshkey["sshkey"])
     return
 
+
+def getvpnid(vpn_name):
+    ################################################
+    ## LLookup VPN by name
+    ################################################
+
+    resp = requests.get(rias_endpoint + '/v1/vpn_gateways' + version, headers=headers)
+    if resp.status_code == 200:
+        vpn_gateways = json.loads(resp.content)["vpn_gateways"]
+        vpn_gateway = \
+            list(filter(lambda vpn_gateway: vpn_gateway["name"] == vpn_name, vpn_gateways))
+
+        if len(vpn_gateway) > 0:
+            vpn_gateway_id = vpn_gateway[0]['id']
+        else:
+            vpn_gateway_id = None
+    else:
+        vpn_gateway_id = None
+
+    return vpn_gateway_id
 
 def getregionavailability(region):
     #############################
@@ -424,6 +449,7 @@ def deletesubnet(subnet_name):
                     break
         elif resp.status_code == 409:
             print("Subnet %s is in use and can not be deleted." % subnet_name)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
             quit()
         else:
             # error stop execution
@@ -543,6 +569,35 @@ def getinstanceid(instance_name, subnet_name):
     else:
         return
 
+
+def deletevpn(vpn_id, vpn_name):
+    ##############################################
+    # delete vpn
+    ##############################################
+
+    if vpn_id != None:
+        resp = requests.delete(rias_endpoint + '/v1/vpn_gateways/' + vpn_id + version, headers=headers)
+
+        if resp.status_code == 204:
+            print("vpn %s (%s) deleted successfully." % (vpn_name, vpn_id))
+            while True:
+                print("Waiting for deletion of instance %s to complete.  Sleeping 30 seconds." % vpn_name)
+                time.sleep(30)
+                if getvpnid(vpn_name) is None:
+                    break
+
+        elif resp.status_code == 404:
+            print("An vpn with the specified identifier %s could not be found." % vpn_id)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+
+        else:
+            print("%s Error deleting instance." % resp.status_code)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+    else:
+        print("VPN %s does not currently exist." % (vpn_name))
+    return
 
 def deleteinstance(instance_name, subnet_name):
     ##############################################

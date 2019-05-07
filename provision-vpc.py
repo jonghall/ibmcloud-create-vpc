@@ -21,11 +21,25 @@ def main(region):
 
     # Create VPC
     vpc_name = topology["vpc"]
-    vpc_id = createvpc()
+    region = topology["region"]
 
-    # Create vpc-address-prefixes
-    for prefix in topology['address_prefix']:
-        createaddressprefix(vpc_id, prefix['name'], prefix['zone'], prefix['cidr'])
+    if "classic_access" in topology:
+        classic_access = topology["classic_access"]
+    else:
+        classic_access = False
+
+    if "resource_group" in topology:
+        resource_group = topology["resource_group"]
+    else:
+        resource_group = "default"
+
+    if "default_network_acl" in topology:
+        default_network_acl = topology["default_network_acl"]
+    else:
+        default_network_acl = vpc_name + "-default-acl"
+
+    vpc_id = createvpc(vpc_name, region, classic_access, resource_group, default_network_acl)
+
 
     # Create VPC's security groups
     for security_group in topology['security_groups']:
@@ -40,6 +54,10 @@ def main(region):
     #######################################################################
 
     for zone in topology["zones"]:
+        # Create vpc-address-prefix for zone
+        if "address_prefix_cidr" in zone:
+            createaddressprefix(vpc_id, zone['name'], zone['address_prefix_cidr'])
+        # Create Subnets
         for subnet in zone["subnets"]:
             ## Provision new Subnet
             subnet_id = createsubnet(vpc_id, zone["name"], subnet)
@@ -68,6 +86,11 @@ def main(region):
                         print("%s Error getting list of gateways for zone %z." % (resp.status_code, zone["name"]))
                         print("Error Data:  %s" % json.loads(resp.content)['errors'])
                         quit()
+            if "vpn" in subnet:
+                for vpn_instance in subnet["vpn"]:
+                    # A VPN instance is needed
+                    # local_CIDR derviced from the zone address block
+                    createvpn(vpn_instance, zone["address_prefix_cidr"], subnet_id)
 
             # Build instances for this subnet (if defined in topology)
             if "instances" in subnet:
@@ -89,7 +112,7 @@ def main(region):
                         quit()
 
                     for q in range(1, instance["quantity"] + 1):
-                        instance_name = (instance["name"] % q)
+                        instance_name = (instance["name"] % q) + "-" + zone["name"]
                         instance_id = createinstance(zone["name"], instance_name, vpc_id, image_id, profile_name,
                                                      sshkey_id,
                                                      subnet_id,
@@ -155,6 +178,26 @@ def getregionavailability(region):
     return
 
 
+def getvpnid(vpn_name):
+    ################################################
+    ## LLookup VPN by name
+    ################################################
+
+    resp = requests.get(rias_endpoint + '/v1/vpn_gateways' + version, headers=headers)
+    if resp.status_code == 200:
+        vpn_gateways = json.loads(resp.content)["vpn_gateways"]
+        vpn_gateway = \
+            list(filter(lambda vpn_gateway: vpn_gateway["name"] == vpn_name, vpn_gateways))
+
+        if len(vpn_gateway) > 0:
+            vpn_gateway_id = vpn_gateway[0]['id']
+        else:
+            vpn_gateway_id = 0
+    else:
+        vpn_gateway_id = 0
+
+    return vpn_gateway_id
+
 def getnetworkaclid(network_acl_name):
     ################################################
     ## Lookup network acl id by name
@@ -208,24 +251,45 @@ def createnetworkacl(network_acl):
 
         rules = []
         for rule in network_acl['rules']:
-            new_rule = {
-                "name": rule["name"],
-                "action": rule["action"],
-                "direction": rule["direction"],
-                "source": rule["source"],
-                "destination": rule["destination"]
-            }
+            new_rule = {}
 
-            if "port_min" in rule:
-                new_rule["port_min"] = rule["port_min"]
-            if "port_max" in rule:
-                new_rule["port_max"] = rule["port_max"]
+            if "action" in rule:
+                new_rule["action"] = rule["action"]
+
+            if "direction" in rule:
+                new_rule["direction"] = rule["direction"]
+
+            if "name" in rule:
+                new_rule["name"] = network_acl["network_acl"] + "-" + rule["name"]
+
+            if "source" in rule:
+                new_rule["source"] = rule["source"]
+
+            if "destination" in rule:
+                new_rule["destination"] = rule["destination"]
+
+            if "protocol" in rule:
+                new_rule["protocol"] = rule["protocol"]
+                if rule["protocol"] == "tcp" or rule["protocol"] == "udp":
+
+                    if "port_min" in rule:
+                        new_rule["port_min"] = rule["port_min"]
+                    if "port_max" in rule:
+                        new_rule["port_max"] = rule["port_max"]
+
+                if rule["protocol"] == "icmp":
+                    if "type" in rule:
+                        new_rule["type"] = rule["type"]
+                    if "code" in rule:
+                        new_rule["code"] = rule["code"]
+            else:
+                new_rule["protocol"] = "all"
 
             rules.append(new_rule)
 
         parms = {
             "name": network_acl["network_acl"],
-            "rues": rules,
+            "rules": rules,
         }
 
         resp = requests.post(rias_endpoint + '/v1/network_acls' + version, json=parms, headers=headers)
@@ -346,6 +410,69 @@ def createpublicgateway(gateway_name, zone_name, vpc_id):
     return
 
 
+def createvpn(vpn, zone_address_prefix_cidr, subnet_id):
+    #################################
+    # Create a VPN and connection
+    #################################
+
+    # Check if VPNaaS instance already exists
+
+    vpn_id = getvpnid(vpn["name"])
+    if vpn_id == 0:
+
+        parms = {
+            "name": vpn["name"],
+            "subnet": {"id": subnet_id}
+        }
+        resp = requests.post(rias_endpoint + '/v1/vpn_gateways' + version, json=parms, headers=headers)
+
+        if resp.status_code == 201:
+            vpn_id = resp.json()["id"]
+            print("VPN %s was created successfully." % (vpn["name"]))
+        elif resp.status_code == 400:
+            print("Invalid VPN template provided.")
+            print("template=%s" % parms)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+        else:
+            # error stop execution
+            print("%s Error creating VPN." % (resp.status_code, zone_name))
+            print("template=%s" % parms)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+    else:
+        print("VPN %s already exists in VPC." % (vpn["name"]))
+
+    # now Create Connections to VPN
+    if "connections" in vpn:
+        for connection in vpn["connections"]:
+            parms = {
+                "name": connection["name"],
+                "peer_address": connection["peer_address"],
+                "psk": connection["preshared_key"],
+                "local_cidrs": [zone_address_prefix_cidr],
+                "peer_cidrs": connection["peer_cidrs"]
+            }
+            resp = requests.post(rias_endpoint + '/v1/vpn_gateways/' + vpn_id + "/connections" + version, json=parms,
+                                 headers=headers)
+
+            if resp.status_code == 201:
+                vpn_connection = resp.json()
+                print("VPN connection %s was created successfully." % (connection["name"]))
+            elif resp.status_code == 400:
+                print("Invalid VPN connection template provided.")
+                print("template=%s" % parms)
+                print("Error Data:  %s" % json.loads(resp.content)['errors'])
+                quit()
+            else:
+                # error stop execution
+                print("%s Error creating VPN connection." % (resp.status_code))
+                print("template=%s" % parms)
+                print("Error Data:  %s" % json.loads(resp.content)['errors'])
+                quit()
+    return
+
+
 def attachpublicgateway(gateway_id, subnet_id):
     #################################
     # Attach a public gateway
@@ -391,7 +518,7 @@ def attachpublicgateway(gateway_id, subnet_id):
     return
 
 
-def createvpc():
+def createvpc(vpc_name, region, classic_access, resource_group, default_network_acl):
     ##################################
     # Create VPC in desired region
     ##################################
@@ -401,10 +528,10 @@ def createvpc():
     if resp.status_code == 200:
         vpcs = json.loads(resp.content)["vpcs"]
         # Determine if network_acl name already exists and retreive id.
-        vpc = list(filter(lambda vpc: vpc['name'] == topology["vpc"], vpcs))
+        vpc = list(filter(lambda vpc: vpc['name'] == vpc_name, vpcs))
         if len(vpc) > 0:
             print("The VPC named %s (%s) already exists in region." % (vpc[0]["name"], vpc[0]['id']))
-            default_network_acl_id = getnetworkaclid(topology["default_network_acl"])
+            default_network_acl_id = getnetworkaclid(default_network_acl)
             vpc = vpc[0]
             return (vpc['id'])
         else:
@@ -414,7 +541,7 @@ def createvpc():
             if resp.status_code == 200:
                 acls = json.loads(resp.content)["network_acls"]
                 default_network_acl = \
-                    list(filter(lambda acl: acl['name'] == topology["default_network_acl"], acls))
+                    list(filter(lambda acl: acl['name'] == default_network_acl, acls))
 
                 if len(default_network_acl) > 0:
                     print("%s network_acl already exists.   Using network_acl_id %s as default." % (
@@ -422,16 +549,20 @@ def createvpc():
                     default_network_acl_id = default_network_acl[0]['id']
 
                     # create parameters for VPC creation
-                    parms = {"name": topology["vpc"],
-                             "classic_access": topology["classic_access"],
-                             "default_network_acl": {"id": default_network_acl_id}
+
+                    resource_group_id = getresourcegroupid(resource_group)
+
+                    parms = {"name": vpc_name,
+                             "classic_access": classic_access,
+                             "default_network_acl": {"id": default_network_acl_id},
+                             "resource_group": {"id": resource_group_id}
                              }
 
                     resp = requests.post(rias_endpoint + '/v1/vpcs' + version, json=parms, headers=headers)
 
                     if resp.status_code == 201:
                         vpc = resp.json()
-                        print("Created VPC named %s (%s) in region %s." % (vpc['name'], vpc['id'], topology["region"]))
+                        print("Created VPC named %s (%s) in region %s." % (vpc_name, vpc['id'], region))
                         return (vpc["id"])
                     elif resp.status_code == 400:
                         print("Invalid VPC template provided.")
@@ -447,25 +578,26 @@ def createvpc():
                 else:
                     # *** need to create default ACL if it doesn't exist already per rules in topology file.
                     print("%s network_acls does not exists.  Please manually implement and re-run." % (
-                        topology["default_network_acl"]))
+                        default_network_acl))
                     quit()
             else:
                 # error stop execution
-                print("%s Error getting acls for region %s." % (resp.status_code, topology['region']))
+                print("%s Error getting acls for region %s." % (resp.status_code, region))
                 quit()
     else:
         # error stop execution
-        print("%s Error getting list of vpcs for region %s." % (resp.status_code, topology['region']))
+        print("%s Error getting list of vpcs for region %s." % (resp.status_code, region))
         quit()
     return
 
 
-def createaddressprefix(vpc_id, name, zone, cidr):
+def createaddressprefix(vpc_id, zone, cidr):
     ################################################
     ## Create New Prefix in VPC
     ################################################
 
     # get list of prefixes in VPC to check if prefix already exists
+    name = zone + "-address-prefix"
     resp = requests.get(rias_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes' + version, headers=headers)
     if resp.status_code == 200:
         prefixlist = json.loads(resp.content)["address_prefixes"]
@@ -863,6 +995,41 @@ def getimageid(image_name):
             return 0
 
 
+def getresourcegroupid(resource_group):
+    ################################################
+    ## Return the resource group id of resource group
+    ################################################
+
+    resp = requests.get(resource_controller_endpoint + '/v2/resource_groups', headers=headers)
+    if resp.status_code == 200:
+        resources = json.loads(resp.content)["resources"]
+
+        resource = list(filter(lambda i: i['name'] == resource_group, resources))
+        if len(resource) > 0:
+            resource_id = resource[0]["id"]
+            return resource_id
+        else:
+            return 0
+
+    elif resp.status_code == 401:
+        print("Your access token is invalid or authentication of your token failed.")
+        quit()
+    elif resp.status_code == 403:
+        print("Your access token is valid but does not have then necessary permissions to access this resource.")
+        quit()
+    elif resp.status_code == 429:
+        print("Too many requests.  Please wait a few minutes and try again.")
+        quit()
+    elif resp.status_code == 500:
+        print("Your request could not be processed.  Please try again.")
+    else:
+        print("Unknown error.")
+        print("Error Data:  %s" % json.loads(resp.content)['errors'])
+        quit()
+    return resource_id
+
+
+
 def getsshkeyid(sshkey_name):
     ################################################
     ## Return the sshkey_id of an sshkey name
@@ -925,6 +1092,7 @@ iam_file = open("iam_token", 'r')
 iam_token = iam_file.read()
 iam_token = iam_token[:-1]
 rias_endpoint = "https://us-south.iaas.cloud.ibm.com"
+resource_controller_endpoint = "https://resource-controller.cloud.ibm.com"
 version = "?version=2019-01-01"
 headers = {"Authorization": iam_token}
 
