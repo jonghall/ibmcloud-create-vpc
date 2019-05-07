@@ -24,8 +24,7 @@
       name: us-south-1
       address_prefix_cidr: 172.16.0.0/18
       subnets:
-        -
-          name: web-tier-us-south-1
+        - name: webtier-us-south-1
           ipv4_cidr_block: 172.16.0.0/24
           network_acl: ecomm-webtier-acl
           publicGateway: true
@@ -47,8 +46,7 @@
                 - lb_name: ecomm-webtier-lb
                   lb_pool: nginx-http
                   listen_port: 80
-        -
-          name: app-tier-us-south-1
+        - name: apptier-us-south-1
           ipv4_cidr_block: 172.16.16.0/24
           network_acl: ecomm-apptier-acl
           publicGateway: true
@@ -73,8 +71,7 @@
                 - lb_name: ecomm-apptier-lb
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-1
+        - name: dbtier-us-south-1
           ipv4_cidr_block: 172.16.32.0/24
           network_acl: ecomm-sbtier-acl
           publicGateway: true
@@ -88,8 +85,7 @@
       name: us-south-2
       address_prefix_cidr: 172.16.64.0/18
       subnets:
-        -
-          name: web-tier-us-south-2
+        - name: webtier-us-south-2
           ipv4_cidr_block: 172.16.64.0/24
           publicGateway: true
           network_acl: ecomm-webtier-acl
@@ -103,8 +99,7 @@
                 - lb_name: ecomm-webtier-lb
                   lb_pool: nginx-http
                   listen_port: 80
-        -
-          name: app-tier-us-south-2
+        - name: apptier-us-south-2
           ipv4_cidr_block: 172.16.80.0/24
           network_acl: ecomm-apptier-acl
           publicGateway: true
@@ -121,8 +116,7 @@
                 - lb_name: ecomm-apptier-lb
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-2
+        - name: dbtier-us-south-2
           ipv4_cidr_block: 172.16.96.0/24
           network_acl: ecomm-dbtier-acl
           publicGateway: true
@@ -136,8 +130,7 @@
       name: us-south-3
       address_prefix_cidr: 172.16.128.0/18
       subnets:
-        -
-          name: web-tier-us-south-3
+        - name: webtier-us-south-3
           ipv4_cidr_block: 172.16.128.0/24
           network_acl: ecomm-webtier-acl
           publicGateway: true
@@ -159,8 +152,7 @@
                 - lb_name: ecomm-webtier-lb
                   lb_pool: nginx-http
                   listen_port: 80
-        -
-          name: app-tier-us-south-3
+        - name: apptier-us-south-3
           ipv4_cidr_block: 172.16.144.0/24
           network_acl: ecomm-apptier-acl
           publicGateway: true
@@ -177,8 +169,7 @@
                 - lb_name: ecomm-apptier-lb
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-3
+        - name: dbtier-us-south-3
           ipv4_cidr_block: 172.16.160.0/24
           network_acl: ecomm-dbtier-acl
           publicGateway: true
@@ -192,8 +183,8 @@
     - lbInstance: ecomm-webtier-lb
       is_public: true
       subnets:
-        - web-tier-us-south-1
-        - web-tier-us-south-2
+        - webtier-us-south-1
+        - webtier-us-south-2
       listeners:
         -
           protocol: http
@@ -214,8 +205,8 @@
     - lbInstance: ecomm-apptier-lb
       is_public: false
       subnets:
-        - app-tier-us-south-1
-        - app-tier-us-south-2
+        - apptier-us-south-1
+        - apptier-us-south-2
       listeners:
         -
           protocol: http
