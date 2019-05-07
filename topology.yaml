@@ -1,189 +1,190 @@
--
-  vpc: ecommerce-vpc
+- vpc: ecomm-ussouth
   region: us-south
   classic_access: false
   resource_group: default
-  default_network_acl: ecommerce-vpc-default-acl
-  address_prefix:
-    -
-      name: ecommerce-vpc-zone-1
-      zone: us-south-1
-      cidr: 172.16.0.0/18
-    -
-      name: ecommerce-vpc-zone-2
-      zone: us-south-2
-      cidr: 172.16.64.0/18
-    -
-      name: ecommerce-vpc-zone-3
-      zone: us-south-3
-      cidr: 172.16.128.0/18
+  default_network_acl: ecomm-default-acl
+  instanceTemplates:
+    - template: web_server
+      image: ubuntu-16.04-amd64
+      profile_name: c-2x4
+      sshkey: my-ssh-key
+      cloud-init-file: cloud-init.txt
+    - template: app_server
+      image: ubuntu-16.04-amd64
+      profile_name: c-4x8
+      sshkey: my-ssh-key
+      cloud-init-file: cloud-init.txt
+    - template: db_server
+      image: ubuntu-16.04-amd64
+      profile_name: m-8x32
+      sshkey: my-ssh-key
+      cloud-init-file: cloud-init.txt
   zones:
     -
       name: us-south-1
+      address_prefix_cidr: 172.16.0.0/18
       subnets:
-        -
-          name: web-tier-us-south-1
+        - name: webtier-us-south-1
           ipv4_cidr_block: 172.16.0.0/24
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-webtier-acl
           publicGateway: true
+          vpn:
+            - name: webtier-us-south-1-vpn
+              connections:
+                - name: on-prem-to-vpc-us-south-1
+                  peer_address: 0.0.0.0
+                  preshared_key: mypresharedkey
+                  peer_cidrs:
+                    - 10.0.0.0/8
           instances:
-            -
-              name: web%02d-us-south-1
+            - name: web%02d
               quantity: 1
               template: web_server
-              floating_ip: true
-              security_group: ecommerce-vpc-webtier
+              floating_ip: false
+              security_group: ecomm-webtier-sg
               in_lb_pool:
-                -
-                  lb_name: ecommerce-vpc-webtier-lb01
+                - lb_name: ecomm-webtier-lb
                   lb_pool: nginx-http
                   listen_port: 80
-        -
-          name: app-tier-us-south-1
+        - name: apptier-us-south-1
           ipv4_cidr_block: 172.16.16.0/24
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-apptier-acl
           publicGateway: true
+          vpn:
+            - name: webtier-us-south-2-vpn
+              connections:
+                - name: on-prem-to-vpc-us-south-2
+                  peer_address: 0.0.0.0
+                  preshared_key: mypresharedkey
+                  peer_cidrs:
+                    - 10.0.0.0/8
           instances:
-            -
-              name: app%02d-us-south-1
+            - name: app%02d
               quantity: 1
               template: app_server
               floating_ip: false
-              security_group: ecommerce-vpc-apptier
+              security_group: ecomm-apptier-sg
               in_lb_pool:
-                -
-                  lb_name: ecommerce-vpc-apptier-lb01
+                - lb_name: ecomm-apptier-lb
                   lb_pool: index_php_upstream
                   listen_port: 8090
-                -
-                  lb_name: ecommerce-vpc-apptier-lb01
+                - lb_name: ecomm-apptier-lb
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-1
+        - name: dbtier-us-south-1
           ipv4_cidr_block: 172.16.32.0/24
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-sbtier-acl
           publicGateway: true
           instances:
-            -
-              name: db%02d-us-south-1
+            - name: db%02d
               quantity: 1
               template: app_server
               floating_ip: false
-              security_group: ecommerce-vpc-dbtier
+              security_group: ecomm-dbtier-sg
     -
       name: us-south-2
+      address_prefix_cidr: 172.16.64.0/18
       subnets:
-        -
-          name: web-tier-us-south-2
+        - name: webtier-us-south-2
           ipv4_cidr_block: 172.16.64.0/24
           publicGateway: true
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-webtier-acl
           instances:
-            -
-              name: web%02d-us-south-2
+            - name: web%02d
               quantity: 1
               template: web_server
-              floating_ip: true
-              security_group: ecommerce-vpc-webtier
+              floating_ip: false
+              security_group: ecomm-webtier-sg
               in_lb_pool:
-                -
-                  lb_name: ecommerce-vpc-webtier-lb01
+                - lb_name: ecomm-webtier-lb
                   lb_pool: nginx-http
                   listen_port: 80
-        -
-          name: app-tier-us-south-2
+        - name: apptier-us-south-2
           ipv4_cidr_block: 172.16.80.0/24
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-apptier-acl
           publicGateway: true
           instances:
-            -
-              name: app%02d-us-south-2
+            - name: app%02d
               quantity: 1
               template: app_server
               floating_ip: false
-              security_group: ecommerce-vpc-apptier
+              security_group: ecomm-apptier-sg
               in_lb_pool:
-                -
-                  lb_name: ecommerce-vpc-apptier-lb01
+                - lb_name: ecomm-apptier-lb
                   lb_pool: index_php_upstream
                   listen_port: 8090
-                -
-                  lb_name: ecommerce-vpc-apptier-lb01
+                - lb_name: ecomm-apptier-lb
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-2
+        - name: dbtier-us-south-2
           ipv4_cidr_block: 172.16.96.0/24
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-dbtier-acl
           publicGateway: true
           instances:
-            -
-              name: db%02d-us-south-2
+            - name: db%02d
               quantity: 1
-              template: app_server
+              template: db_server
               floating_ip: false
-              security_group: ecommerce-vpc-dbtier
+              security_group: ecomm-dbtier-sg
     -
       name: us-south-3
+      address_prefix_cidr: 172.16.128.0/18
       subnets:
-        -
-          name: web-tier-us-south-3
+        - name: webtier-us-south-3
           ipv4_cidr_block: 172.16.128.0/24
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-webtier-acl
           publicGateway: true
+          vpn:
+            - name: webtier-us-south-3-vpn
+              connections:
+                - name: on-prem-to-vpc-us-south-3
+                  peer_address: 0.0.0.0
+                  preshared_key: mypresharedkey
+                  peer_cidrs:
+                    - 10.0.0.0/8
           instances:
-            -
-              name: web%02d-us-south-3
+            - name: web%02d
               quantity: 1
               template: web_server
-              floating_ip: true
-              security_group: ecommerce-vpc-webtier
+              floating_ip: false
+              security_group: ecomm-webtier-sg
               in_lb_pool:
-                -
-                  lb_name: ecommerce-vpc-webtier-lb01
+                - lb_name: ecomm-webtier-lb
                   lb_pool: nginx-http
                   listen_port: 80
-        -
-          name: app-tier-us-south-3
+        - name: apptier-us-south-3
           ipv4_cidr_block: 172.16.144.0/24
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-apptier-acl
           publicGateway: true
           instances:
-            -
-              name: app%02d-us-south-3
+            - name: app%02d
               quantity: 1
               template: app_server
               floating_ip: false
-              security_group: ecommerce-vpc-apptier
+              security_group: ecomm-apptier-sg
               in_lb_pool:
-                -
-                  lb_name: ecommerce-vpc-apptier-lb01
+                - lb_name: ecomm-apptier-lb
                   lb_pool: index_php_upstream
                   listen_port: 8090
-                -
-                  lb_name: ecommerce-vpc-apptier-lb01
+                - lb_name: ecomm-apptier-lb
                   lb_pool: direct_php_upstream
                   listen_port: 8091
-        -
-          name: db-tier-us-south-3
+        - name: dbtier-us-south-3
           ipv4_cidr_block: 172.16.160.0/24
-          network_acl: ecommerce-vpc-default-acl
+          network_acl: ecomm-dbtier-acl
           publicGateway: true
           instances:
-             -
-              name: db%02d-us-south-3
+            - name: db%02d
               quantity: 1
-              template: app_server
+               template: db_server
               floating_ip: false
-              security_group: ecommerce-vpc-dbtier
+               security_group: ecomm-dbtier-sg
   load_balancers:
-    -
-      lbInstance: ecommerce-vpc-webtier-lb01
+    - lbInstance: ecomm-webtier-lb
       is_public: true
       subnets:
-        - web-tier-us-south-1
-        - web-tier-us-south-2
+        - webtier-us-south-1
+        - webtier-us-south-2
       listeners:
         -
           protocol: http
@@ -201,12 +202,11 @@
             max_retries: 2
             timeout: 2
             url_path: /nginx_status
-    -
-      lbInstance: ecommerce-vpc-apptier-lb01
+    - lbInstance: ecomm-apptier-lb
       is_public: false
       subnets:
-        - app-tier-us-south-1
-        - app-tier-us-south-2
+        - apptier-us-south-1
+        - apptier-us-south-2
       listeners:
         -
           protocol: http
@@ -237,28 +237,8 @@
             max_retries: 2
             timeout: 2
             url_path: /
-  instanceTemplates:
-    -
-      template: web_server
-      image: ubuntu-16.04-amd64
-      profile_name: c-2x4
-      sshkey: my-ssh-key
-      cloud-init-file: cloud-init.txt
-    -
-      template: app_server
-      image: ubuntu-16.04-amd64
-      profile_name: c-4x8
-      sshkey: my-ssh-key
-      cloud-init-file: cloud-init.txt
-    -
-      template: db_server
-      image: ubuntu-16.04-amd64
-      profile_name: m-8x32
-      sshkey: my-ssh-key
-      cloud-init-file: cloud-init.txt
   security_groups:
-    -
-      security_group: ecommerce-vpc-webtier
+    - security_group: ecomm-webtier-sg
       rules:
          -
           direction: inbound
@@ -284,8 +264,7 @@
           protocol: all
           remote:
             cidr_block: 0.0.0.0/0
-    -
-      security_group: ecommerce-vpc-apptier2
+    - security_group: ecomm-apptier-sg
       rules:
         -
           direction: inbound
@@ -312,15 +291,80 @@
           port_max: 8091
           protocol: tcp
           remote:
-            security_group: ecommerce-vpc-webtier
+            security_group: ecomm-webtier-sg
         -
           direction: outbound
           ip_version: ipv4
           protocol: all
           remote:
             cidr_block: 0.0.0.0/0
+    - security_group: ecomm-dbtier-sg
+      rules:
+        - direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.32.0/24
+        - direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.96.0/24
+        - direction: inbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 172.16.160.0/24
+        - direction: inbound
+          ip_version: ipv4
+          port_min: 3306
+          port_max: 3306
+          protocol: tcp
+          remote:
+            security_group: ecomm-apptier-sg
+        - direction: outbound
+          ip_version: ipv4
+          protocol: all
+          remote:
+            cidr_block: 0.0.0.0/0
   network_acls:
-    - network_acl: ecommerce-vpc-default-acl
+    - network_acl: ecomm-default-acl
+      rules:
+        - name: deny-all-in
+          direction: inbound
+          action: deny
+          source: 0.0.0.0/0
+          destination: 0.0.0.0/0
+        - name: deny-all-out
+          direction: outbound
+          action: deny
+          source: 0.0.0.0/0
+          destination: 0.0.0.0/0
+    - network_acl: ecomm-webtier-acl
+      rules:
+        - name: allow-all-in
+          direction: inbound
+          action: allow
+          source: 0.0.0.0/0
+          destination: 0.0.0.0/0
+        - name: allow-all-out
+          direction: outbound
+          action: allow
+          source: 0.0.0.0/0
+          destination: 0.0.0.0/0
+    - network_acl: ecomm-apptier-acl
+      rules:
+        - name: allow-all-in
+          direction: inbound
+          action: allow
+          source: 0.0.0.0/0
+          destination: 0.0.0.0/0
+        - name: allow-all-out
+          direction: outbound
+          action: allow
+          source: 0.0.0.0/0
+          destination: 0.0.0.0/0
+    - network_acl: ecomm-dbtier-acl
       rules:
         - name: allow-all-in
           direction: inbound
