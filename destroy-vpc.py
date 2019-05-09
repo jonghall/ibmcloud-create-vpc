@@ -48,7 +48,7 @@ def main(region):
 
                 for instance in subnet["instances"]:
                     for q in range(1, instance["quantity"] + 1):
-                        instance_name = (instance["name"] % q)
+                        instance_name = (instance["name"] % q) + "-" + zone["name"]
                         print("---- instance %s ----" % instance_name)
 
                         # check if floating ip's exist
@@ -58,6 +58,7 @@ def main(region):
                             releasefloatingip(id)
 
                         # now that ip is detached and deleted or didn't exist delete instance
+
                         deleteinstance(instance_name, subnet["name"])
 
                 # now that instances are deleted delete subnet
