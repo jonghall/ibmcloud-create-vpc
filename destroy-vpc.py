@@ -328,7 +328,7 @@ def detachpublicgateway(subnet_name):
                 print("No public Gateway exists for subnet %s" % subnet_name)
         else:
             print("%s Error getting public gateway from subnet %s." % (resp.status_code, subnet_name))
-            print("template=%s" % parms)
+            print("template: %s" % parms)
             print("Error Data:  %s" % json.loads(resp.content)['errors'])
             quit()
     return

@@ -122,7 +122,18 @@ def getzones(region):
     # Get list of zones in Region
     #############################
 
-    resp = requests.get(rias_endpoint + '/v1/regions/' + region + '/zones' + version, headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/regions/' + region + '/zones' + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         zones = json.loads(resp.content)["zones"]
         if len(zones) > 0:
@@ -131,9 +142,7 @@ def getzones(region):
             print("There are no zones available in this region.")
             quit()
     else:
-        print("%s Error getting zones for region %s." % (resp.status_code, region))
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
     return zones
 
 def getregionavailability(region):
@@ -141,7 +150,17 @@ def getregionavailability(region):
     # Get Region Availability
     #############################
 
-    resp = requests.get(rias_endpoint + '/v1/regions/' + region + version, headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/regions/' + region + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
 
     if resp.status_code == 200:
         region = json.loads(resp.content)
@@ -153,9 +172,7 @@ def getregionavailability(region):
             print('Desired region is not currently available.')
             quit()
     else:
-        print("%s Error getting details on region %s." % (resp.status_code, topology['region']))
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
     return
 
 def getnetworkaclid(network_acl_name):
@@ -163,7 +180,17 @@ def getnetworkaclid(network_acl_name):
     ## Lookup network acl id by name
     ################################################
 
-    resp = requests.get(rias_endpoint + '/v1/network_acls/' + version, headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/network_acls/' + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
 
     if resp.status_code == 200:
         acls = json.loads(resp.content)["network_acls"]
@@ -176,11 +203,7 @@ def getnetworkaclid(network_acl_name):
         else:
             networkaclid = None
     else:
-        # error stop execution
-        print("%s Error getting network acls." % (resp.status_code))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     return networkaclid
 
@@ -237,23 +260,29 @@ def createnetworkacl(network_acl):
             "rules": rules,
         }
 
-        resp = requests.post(rias_endpoint + '/v1/network_acls' + version, json=parms, headers=headers)
+        try:
+            resp = requests.post(rias_endpoint + '/v1/network_acls' + version, json=parms, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            if resp.status_code == 400:
+                print("Invalid network_acl template provided.")
+                print("template=%s" % parms)
+                print("Error Data:  %s" % errb)
+                quit()
+            else:
+                unknownapierror(resp)
 
         if resp.status_code == 201:
             network_acl = resp.json()
             print("Network ACL %s (%s) was created successfully." % (network_acl["name"], network_acl["id"]))
-
-        elif resp.status_code == 400:
-            print("Invalid network_acl template provided.")
-            print("template=%s" % json.dumps(parms, indent=4))
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
         else:
-            # error stop execution
-            print("%s Error creating network acls." % (resp.status_code, zone_name))
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
+            unknownapierror(resp)
     else:
         # Network ACL already exists.  do no recreate
         print("Network ACL %s already exists." % (network_acl["network_acl"]))
@@ -266,7 +295,19 @@ def getsecuritygroupid(security_group, vpcid):
     ## Lookup security group id by name
     ################################################
 
-    resp = requests.get(rias_endpoint + '/v1/security_groups/' + version + "&vpc.if=" + vpcid, headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/security_groups/' + version + "&vpc.if=" + vpcid, headers=headers,
+                            timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         sgs = json.loads(resp.content)["security_groups"]
         default_security_group = \
@@ -277,11 +318,7 @@ def getsecuritygroupid(security_group, vpcid):
         else:
             security_group_id = None
     else:
-        # error stop execution
-        print("%s Error getting security groups." % (resp.status_code))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     return security_group_id
 
@@ -329,24 +366,31 @@ def createsecuritygroup(security_group, vpcid):
             "rules": rules,
             "vpc": {"id": vpcid}
         }
-        resp = requests.post(rias_endpoint + '/v1/security_groups' + version, json=parms, headers=headers)
+        try:
+            resp = requests.post(rias_endpoint + '/v1/security_groups' + version, json=parms, headers=headers,
+                                 timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            if resp.status_code == 400:
+                print("Invalid security_group template provided.")
+                print("template: %s" % parms)
+                print("Error Data: %s" % errb)
+                quit()
+            else:
+                unknownapierror(resp)
 
         if resp.status_code == 201:
             security_group = resp.json()
             securitygroupid = security_group["id"]
             print("Security Group %s (%s) was created successfully." % (security_group["name"], securitygroupid))
-
-        elif resp.status_code == 400:
-            print("Invalid security_group template provided.")
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
         else:
-            # error stop execution
-            print("%s Error creating security group." % (resp.status_code))
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
+            unknownapierror(resp)
     else:
         # Security group already exists.  do no recreate
         print("Security Group %s already exists." % (security_group["security_group"]))
@@ -359,7 +403,18 @@ def getpublicgatewayid(zone_name, vpcid):
     # Get Public Gateway ID
     #################################
 
-    resp = requests.get(rias_endpoint + '/v1/public_gateways' + version, headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/public_gateways' + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         public_gateways = json.loads(resp.content)["public_gateways"]
         # Determine if gateway exists and use it.  First get Gateways for this VPC
@@ -371,11 +426,7 @@ def getpublicgatewayid(zone_name, vpcid):
         else:
             publicgatewayid = None
     else:
-        # error stop execution
-        print("%s Error getting public gateways." % (resp.status_code))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     return publicgatewayid
 
@@ -391,23 +442,32 @@ def createpublicgateway(gateway_name, zone_name, vpcid):
         "zone": {"name": zone_name},
         "vpc": {"id": vpcid}
     }
-    resp = requests.post(rias_endpoint + '/v1/public_gateways' + version, json=parms, headers=headers)
+
+    try:
+        resp = requests.post(rias_endpoint + '/v1/public_gateways' + version, json=parms, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        if resp.status_code == 400:
+            print("Invalid public gateway template provided.")
+            print("template: %s" % parms)
+            print("Error Data: %s" % errb)
+            quit()
+        else:
+            unknownapierror(resp)
 
     if resp.status_code == 201:
         gateway = resp.json()
         gatewayid = gateway["id"]
         print("Public Gateway %s (%s) was created successfully." % (gateway_name, gatewayid))
-    elif resp.status_code == 400:
-        print("Invalid public gateway template provided.")
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
     else:
-        # error stop execution
-        print("%s Error creating public gateway." % (resp.status_code, zone_name))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
+
     return gatewayid
 
 
@@ -415,8 +475,18 @@ def getvpnid(vpn_name):
     ################################################
     ## Lookup VPN ID by name
     ################################################
+    try:
+        resp = requests.get(rias_endpoint + '/v1/vpn_gateways' + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
 
-    resp = requests.get(rias_endpoint + '/v1/vpn_gateways' + version, headers=headers)
     if resp.status_code == 200:
         vpn_gateways = json.loads(resp.content)["vpn_gateways"]
         vpn_gateway = \
@@ -427,11 +497,7 @@ def getvpnid(vpn_name):
         else:
             vpn_gateway_id = None
     else:
-        # error stop execution
-        print("%s Error getting vpns." % (resp.status_code))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     return vpn_gateway_id
 
@@ -449,22 +515,30 @@ def createvpn(vpn, zone_address_prefix_cidr, subnet_id):
             "name": vpn["name"],
             "subnet": {"id": subnet_id}
         }
-        resp = requests.post(rias_endpoint + '/v1/vpn_gateways' + version, json=parms, headers=headers)
+        try:
+            resp = requests.post(rias_endpoint + '/v1/vpn_gateways' + version, json=parms, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            if resp.status_code == 400:
+                print("Invalid VPN template provided.")
+                print("template: %s" % parms)
+                print("Error Data: %s" % errb)
+                quit()
+            else:
+                unknownapierror(resp)
+
 
         if resp.status_code == 201:
             vpn_id = resp.json()["id"]
             print("VPN %s was created successfully." % (vpn["name"]))
-        elif resp.status_code == 400:
-            print("Invalid VPN template provided.")
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
         else:
-            # error stop execution
-            print("%s Error creating VPN." % (resp.status_code))
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
+            unknownapierror(resp)
 
         # now Create Connections to VPN
         if "connections" in vpn:
@@ -476,24 +550,32 @@ def createvpn(vpn, zone_address_prefix_cidr, subnet_id):
                     "local_cidrs": [zone_address_prefix_cidr],
                     "peer_cidrs": connection["peer_cidrs"]
                 }
-                resp = requests.post(rias_endpoint + '/v1/vpn_gateways/' + vpn_id + "/connections" + version,
-                                     json=parms,
-                                     headers=headers)
+
+                try:
+                    resp = requests.post(rias_endpoint + '/v1/vpn_gateways/' + vpn_id + "/connections" + version,
+                                         json=parms,
+                                         headers=headers, timeout=30)
+                    resp.raise_for_status()
+                except requests.exceptions.ConnectionError as errc:
+                    print("Error Connecting:", errc)
+                    quit()
+                except requests.exceptions.Timeout as errt:
+                    print("Timeout Error:", errt)
+                    quit()
+                except requests.exceptions.HTTPError as errb:
+                    if resp.status_code == 400:
+                        print("Invalid VPN connection template provided.")
+                        print("template: %s" % parms)
+                        print("Error Data:  %s" % errb)
+                        quit()
+                    else:
+                        unknownapierror(resp)
 
                 if resp.status_code == 201:
                     vpn_connection = resp.json()
                     print("VPN connection %s was created successfully." % (connection["name"]))
-                elif resp.status_code == 400:
-                    print("Invalid VPN connection template provided.")
-                    print("template=%s" % parms)
-                    print("Error Data:  %s" % json.loads(resp.content)['errors'])
-                    quit()
                 else:
-                    # error stop execution
-                    print("%s Error creating VPN connection." % (resp.status_code))
-                    print("template=%s" % parms)
-                    print("Error Data:  %s" % json.loads(resp.content)['errors'])
-                    quit()
+                    unknownapierror(resp)
     else:
         print("VPN %s already exists in VPC." % (vpn["name"]))
     return vpn_id
@@ -506,7 +588,18 @@ def attachpublicgateway(gateway_id, subnet_id):
     # Check subnet status first...waiting up to 30 seconds
     count = 0
     while count < 12:
-        resp = requests.get(rias_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers);
+        try:
+            resp = requests.get(rias_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            unknownapierror(resp)
+
         subnet_status = json.loads(resp.content)["status"]
         if subnet_status == "available":
             break
@@ -516,30 +609,38 @@ def attachpublicgateway(gateway_id, subnet_id):
             time.sleep(5)
 
     parms = {"id": gateway_id}
-    resp = requests.put(rias_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version, json=parms,
-                        headers=headers)
+    try:
+        resp = requests.put(rias_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version, json=parms,
+                            headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        if resp.status_code == 400:
+            print("Public gateway could not be attached.")
+            print("template: %s" % parms)
+            print("Error Data:  %s" % errb)
+            quit()
+        elif resp.status_code == 404:
+            print("A subnet with the specified identifier could not be found.")
+            print("template: %s" % parms)
+            print("Request: %s" % resp.request.url)
+            print("Response:  %s" % json.loads(resp.content))
+            print("Error Data:  %s" % errb)
+            quit()
+        else:
+            unknownapierror(resp)
+
     if resp.status_code == 201:
         attach = resp.json()
         print("Public gateway attached to subnet %s." % attach["name"])
         return attach
-    elif resp.status_code == 400:
-        print("Public gateway could not be attached.")
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
-    elif resp.status_code == 404:
-        print("A subnet with the specified identifier could not be found.")
-        print("template=%s" % parms)
-        print("Request: %s" % rias_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version)
-        print("Response:  %s" % json.loads(resp.content))
-        quit()
     else:
-        # error stop execution
-        print("%s Error attaching pubic gateway." % (resp.status_code, zone["name"]))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
-
+        unknownapierror(resp)
     return
 
 
@@ -549,7 +650,18 @@ def getvpcid(vpc_name):
     ################################################
 
     # get list of VPCs in region to check if VPC already exists
-    resp = requests.get(rias_endpoint + '/v1/vpcs/' + version, headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/vpcs/' + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         vpcs = json.loads(resp.content)["vpcs"]
         # Determine if network_acl name already exists and retreive id.
@@ -587,24 +699,33 @@ def createvpc(vpc_name, region, classic_access, resource_group, default_network_
                  "resource_group": {"id": resource_group_id}
                  }
 
-        resp = requests.post(rias_endpoint + '/v1/vpcs' + version, json=parms, headers=headers)
+        try:
+            resp = requests.post(rias_endpoint + '/v1/vpcs' + version, json=parms, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            if resp.status_code == 400:
+                print("Invalid VPC template provided.")
+                print("Response Code: %s" % (resp.status_code))
+                print("Request Method: %s" % (resp.request.method))
+                print("Request URL: %s" % (resp.request.url))
+                print("Template: %s" % parms)
+                print("Error Data:  %s" % errb)
+                quit()
+            else:
+                unknownapierror(resp)
 
         if resp.status_code == 201:
             vpc = resp.json()
-            print("Created VPC named %s (%s) in region %s." % (vpc_name, vpc['id'], region))
-
-        elif resp.status_code == 400:
-            print("Invalid VPC template provided.")
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
-
+            vpcid = vpc["id"]
+            print("Created VPC named %s (%s) in region %s." % (vpc_name, vpcid, region))
         else:
-            # error stop execution
-            print(json.dumps(parms, indent=4))
-            print("%s Error." % resp.status_code)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
+            unknownapierror(resp)
     else:
         print("The VPC named %s (%s) already exists in region." % (vpc_name, vpcid))
 
@@ -617,7 +738,20 @@ def getaddressprefixid(vpcid, name):
     ################################################
 
     addressprefixid = None
-    resp = requests.get(rias_endpoint + '/v1/vpcs/' + vpcid + '/address_prefixes' + version, headers=headers)
+
+    try:
+        resp = requests.get(rias_endpoint + '/v1/vpcs/' + vpcid + '/address_prefixes' + version, headers=headers,
+                            timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         prefixlist = json.loads(resp.content)["address_prefixes"]
         prefix_id = list(filter(lambda p: p['name'] == name, prefixlist))
@@ -626,11 +760,7 @@ def getaddressprefixid(vpcid, name):
             if prefix_id[0]["id"] != 0:
                 addressprefixid = prefix_id[0]["id"]
     else:
-        # error stop execution
-        print("%s Error getting vpc-address-prefixes." % (resp.status_code))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     return addressprefixid
 
@@ -651,36 +781,43 @@ def createaddressprefix(vpcid, zone, cidr):
                  "zone": {"name": zone},
                  "cidr": cidr
                  }
+        try:
+            resp = requests.post(rias_endpoint + '/v1/vpcs/' + vpcid + '/address_prefixes' + version, json=parms,
+                                 headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            if resp.status_code == 400:
+                print("An invalid prefix template provided.")
+                print("template: %s" % parms)
+                print("Error Data:  %s" % errb)
+                quit()
 
-        resp = requests.post(rias_endpoint + '/v1/vpcs/' + vpcid + '/address_prefixes' + version, json=parms,
-                             headers=headers)
+            elif resp.status_code == 404:
+                print("The specified VPC (%s) could not be found." % vpcid)
+                print("template: %s" % parms)
+                print("Error Data:  %s" % errb)
+                quit()
+
+            elif resp.status_code == 409:
+                print("The prefix template conflicts with another prefix in this VPC.")
+                print("template: %s" % parms)
+                print("Error Data:  %s" % errb)
+                quit()
+            else:
+                unknownapierror(resp)
 
         if resp.status_code == 201:
             addressprefixid = resp.json()["id"]
             print("New vpc-address-prefix %s (%s) %s was created successfully in zone %s." % (
                 name, addressprefixid, cidr, zone))
-
-        elif resp.status_code == 400:
-            print("An invalid prefix template provided.")
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
-
-        elif resp.status_code == 404:
-            print("The specified VPC (%s) could not be found." % vpcid)
-            print("template=%s" % parms)
-            quit()
-
-        elif resp.status_code == 409:
-            print("The prefix template conflicts with another prefix in this VPC.")
-            print("template=%s" % parms)
-            quit()
         else:
-            # error stop execution
-            print("%s Error creating vpc-address-prefix in %s zone." % (resp.status_code, zone))
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
+            unknownapierror(resp)
     else:
         # Address Prefix already exists
         print("vpc-address-prefix %s (%s) already exists." % (name, addressprefixid))
@@ -694,7 +831,19 @@ def getsubnetid(subnet_name):
     ################################################
 
     # get list of subnets in region
-    resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers)
+
+    try:
+        resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         subnetlist = json.loads(resp.content)["subnets"]
         subnet_id = list(filter(lambda s: s['name'] == subnet_name, subnetlist))
@@ -703,11 +852,7 @@ def getsubnetid(subnet_name):
         else:
             subnetid = None
     else:
-        # error stop execution
-        print("%s Error getting subnets." % (resp.status_code))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     return subnetid
 
@@ -737,7 +882,28 @@ def createsubnet(vpcid, zone_name, subnet):
                  "zone": {"name": zone_name},
                  "vpc": {"id": vpcid}
                  }
-        resp = requests.post(rias_endpoint + '/v1/subnets' + version, json=parms, headers=headers)
+        try:
+            resp = requests.post(rias_endpoint + '/v1/subnets' + version, json=parms, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            if resp.status_code == 400:
+                print("Invalid subnet template provided.")
+                print("template: %s" % parms)
+                print("Error Data:  %s" % errb)
+                quit()
+            elif resp.status_code == 409:
+                print("The subnet template conflicts with another subnet in this VPC.")
+                print("template: %s" % parms)
+                print("Error Data:  %s" % errb)
+                quit()
+            else:
+                unknownapierror(resp)
 
         if resp.status_code == 201:
             print("Subnet %s requested in zone %s." % (subnet_name, zone_name))
@@ -756,21 +922,8 @@ def createsubnet(vpcid, zone_name, subnet):
             print("Subnet %s named %s was created successfully in zone %s." % (
                 newsubnet["id"], subnet_name, zone_name))
             subnetid = newsubnet["id"]
-        elif resp.status_code == 400:
-            print("Invalid subnet template provided.")
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
-        elif resp.status_code == 409:
-            print("The subnet template conflicts with another subnet in this VPC.")
-            print("template=%s" % parms)
-            quit()
         else:
-            # error stop execution
-            print("%s Error creating subnet in %s zone." % (resp.status_code, zone["name"]))
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
+            unknownapierror(resp)
     else:
         # Subnet already exists do not create
         print("Subnet %s (%s) already exists in zone. " % (subnet_name, subnetid))
@@ -785,8 +938,20 @@ def getinstanceid(instance_name, subnetid):
 
     # get list of instances to check if instance already exists
     instanceid = None
-    resp = requests.get(rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.id=" + subnetid,
-                        headers=headers)
+
+    try:
+        resp = requests.get(rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.id=" + subnetid,
+                            headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         instancelist = json.loads(resp.content)["instances"]
         if len(instancelist) > 0:
@@ -794,11 +959,7 @@ def getinstanceid(instance_name, subnetid):
             if len(instancelist) > 0:
                 instanceid = instancelist[0]["id"]
     else:
-        # error stop execution
-        print("%s Error getting instances." % (resp.status_code))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     return instanceid
 
@@ -836,23 +997,31 @@ def createinstance(zone_name, instance_name, vpcid, image_id, profile_name, sshk
                  }
                  }
 
-        resp = requests.post(rias_endpoint + '/v1/instances' + version, json=parms, headers=headers)
+        try:
+            resp = requests.post(rias_endpoint + '/v1/instances' + version, json=parms, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            if resp.status_code == 400:
+                print("Invalid instance template provided.")
+                print("template: %s" % parms)
+                print("Error Data:  %s" % errb)
+                quit()
+            else:
+                unknownapierror(resp)
 
         if resp.status_code == 201:
             instance = resp.json()
             instanceid = instance["id"]
             print("Created %s (%s) instance successfully." % (instance_name, instanceid))
-        elif resp.status_code == 400:
-            print("Invalid instance template provided.")
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
         else:
-            # error stop execution
-            print(parms)
-            print("%s Error creating instance." % resp.status_code)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
+            unknownapierror(resp)
+
     else:
         # Instance already exists do not create and return id.
         print('Instance named %s (%s) already exists in subnet.' % (
@@ -865,7 +1034,18 @@ def assignfloatingip(instance_id):
 
     # Verify instance provisioning complete
     while True:
-        resp = requests.get(rias_endpoint + '/v1/instances/' + instance_id + version, headers=headers);
+        try:
+            resp = requests.get(rias_endpoint + '/v1/instances/' + instance_id + version, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            unknownapierror(resp)
+
         instance_status = json.loads(resp.content)
         if "status" in instance_status:
             if instance_status["status"] == "running":
@@ -879,9 +1059,20 @@ def assignfloatingip(instance_id):
             time.sleep(10)
 
     # Check if floating IP already assigned
-    resp = requests.get(
-        rias_endpoint + "/v1/instances/" + instance_id + "/network_interfaces/" + network_interface + "/floating_ips" + version,
-        headers=headers)
+    try:
+        resp = requests.get(
+            rias_endpoint + "/v1/instances/" + instance_id + "/network_interfaces/" + network_interface + "/floating_ips" + version,
+            headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         floating_ip = json.loads(resp.content)
         if "floating_ips" in floating_ip:
@@ -897,22 +1088,31 @@ def assignfloatingip(instance_id):
             "id": network_interface
         }
     }
-    resp = requests.post(rias_endpoint + '/v1/floating_ips' + version, json=parms, headers=headers)
+
+    try:
+        resp = requests.post(rias_endpoint + '/v1/floating_ips' + version, json=parms, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        if resp.status_code == 400:
+            print("Invalid template provided.")
+            print("template: %s" % parms)
+            print("Error Data: %s" % errb)
+            quit()
+        else:
+            unknownapierror(resp)
 
     if resp.status_code == 201:
         floating_ip = resp.json()
         print("Floating_ip %s assigned to %s successfully." % (floating_ip["address"], instance_status["name"]))
         return floating_ip['id'], floating_ip['address']
-    elif resp.status_code == 400:
-        print("Invalid template provided.")
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
     else:
-        # error stop execution
-        print("%s Error." % resp.status_code)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
     return
 
 def createloadbalancer(lb):
@@ -921,8 +1121,20 @@ def createloadbalancer(lb):
     ################################################
 
     # get list of load balancers to check if instance already exists
-    resp = requests.get(rias_endpoint + '/v1/load_balancers/' + version,
-                        headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/load_balancers/' + version,
+                            headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         lblist = json.loads(resp.content)["load_balancers"]
         if len(lblist) > 0:
@@ -932,10 +1144,7 @@ def createloadbalancer(lb):
                     lb["lbInstance"], lblist[0]["id"]))
                 return lblist[0]["id"]
     else:
-        # error stop execution
-        print("%s Error." % resp.status_code)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     # Create ListenerTemplate for use in creating load balancer
     listenerTemplate = []
@@ -967,29 +1176,43 @@ def createloadbalancer(lb):
         for zone in topology["zones"]:
             for subnet in zone["subnets"]:
                 # get list of instances on subnet.
-                resp = requests.get(
-                    rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.name=" + subnet["name"],
-                    headers=headers)
+
+                try:
+                    resp = requests.get(
+                        rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.name=" + subnet[
+                            "name"], headers=headers, timeout=30)
+                    resp.raise_for_status()
+                except requests.exceptions.ConnectionError as errc:
+                    print("Error Connecting:", errc)
+                    quit()
+                except requests.exceptions.Timeout as errt:
+                    print("Timeout Error:", errt)
+                    quit()
+                except requests.exceptions.HTTPError as errb:
+                    unknownapierror(resp)
+
                 if resp.status_code == 200:
                     instancelist = json.loads(resp.content)["instances"]
-                for instance in subnet["instances"]:
-                    if "in_lb_pool" in instance:
-                        # Check if this instance is marked for this LB and pool and if so append instances to member template
-                        if len(instancelist) > 0:
-                            for in_lb_pool in instance["in_lb_pool"]:
-                                if (in_lb_pool["lb_name"] == lb["lbInstance"]) and (
-                                        in_lb_pool["lb_pool"] == pool["name"]):
-                                    # iterate through quantity to find each instance
-                                    for count in range(1, instance["quantity"] + 1):
-                                        name = (instance["name"] % count)
-                                        # search by instance name to get ipv4 address, and add as member.
-                                        instanceinfo = list(filter(lambda i: i['name'] == name, instancelist))
-                                        if len(instanceinfo) > 0:
-                                            memberTemplate.append({"port": in_lb_pool["listen_port"],
-                                                                   "target": {"address": instanceinfo[0][
-                                                                       "primary_network_interface"][
-                                                                       "primary_ipv4_address"]},
-                                                                   "weight": 100})
+
+                if "instances" in subnet:
+                    for instance in subnet["instances"]:
+                        if "in_lb_pool" in instance:
+                            # Check if this instance is marked for this LB and pool and if so append instances to member template
+                            if len(instancelist) > 0:
+                                for in_lb_pool in instance["in_lb_pool"]:
+                                    if (in_lb_pool["lb_name"] == lb["lbInstance"]) and (
+                                            in_lb_pool["lb_pool"] == pool["name"]):
+                                        # iterate through quantity to find each instance
+                                        for count in range(1, instance["quantity"] + 1):
+                                            name = (instance["name"] % count) + "-" + zone["name"]
+                                            # search by instance name to get ipv4 address, and add as member.
+                                            instanceinfo = list(filter(lambda i: i['name'] == name, instancelist))
+                                            if len(instanceinfo) > 0:
+                                                memberTemplate.append({"port": in_lb_pool["listen_port"],
+                                                                       "target": {"address": instanceinfo[0][
+                                                                           "primary_network_interface"][
+                                                                           "primary_ipv4_address"]},
+                                                                       "weight": 100})
         # sessions persistence specified for pool add to pool template.
         if "session_persistence" in pool:
             session_persistence = pool["session_persistence"]
@@ -1009,7 +1232,19 @@ def createloadbalancer(lb):
         subnet_list = []
         for subnet in lb['subnets']:
             # get list of subnets in region to check if subnet already exists
-            resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers)
+
+            try:
+                resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers, timeout=30)
+                resp.raise_for_status()
+            except requests.exceptions.ConnectionError as errc:
+                print("Error Connecting:", errc)
+                quit()
+            except requests.exceptions.Timeout as errt:
+                print("Timeout Error:", errt)
+                quit()
+            except requests.exceptions.HTTPError as errb:
+                unknownapierror(resp)
+
             if resp.status_code == 200:
                 subnetlist = json.loads(resp.content)["subnets"]
                 subnet_id = list(filter(lambda s: s['name'] == subnet, subnetlist))
@@ -1025,22 +1260,31 @@ def createloadbalancer(lb):
              "pools": poolTemplate
              }
 
-    resp = requests.post(rias_endpoint + '/v1/load_balancers' + version, json=parms, headers=headers)
+    try:
+        resp = requests.post(rias_endpoint + '/v1/load_balancers' + version, json=parms, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        if resp.status_code == 400:
+            print("Invalid instance template provided.")
+            print("template: %s" % parms)
+            print("Error Data:  %s" % errb)
+            quit()
+        else:
+            unknownapierror(resp)
+
 
     if resp.status_code == 201:
         load_balancer = resp.json()
         print("Created %s (%s) load balancer successfully." % (lb["lbInstance"], load_balancer["id"]))
         return (load_balancer["id"])
-    elif resp.status_code == 400:
-        print("Invalid instance template provided.")
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
     else:
-        # error stop execution
-        print("%s Error." % resp.status_code)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
     return
 
 def encodecloudinit(filename):
@@ -1068,7 +1312,18 @@ def getimageid(image_name):
     ## Return the image_id of an image name
     ################################################
 
-    resp = requests.get(rias_endpoint + '/v1/images/' + version, headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/images/' + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         imagelist = json.loads(resp.content)["images"]
         image_id = list(filter(lambda i: i['name'] == image_name, imagelist))
@@ -1082,7 +1337,28 @@ def getresourcegroupid(resource_group):
     ## Return the resource group id of resource group
     ################################################
 
-    resp = requests.get(resource_controller_endpoint + '/v2/resource_groups', headers=headers)
+    try:
+        resp = requests.get(resource_controller_endpoint + '/v2/resource_groups', headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        if resp.status_code == 401:
+            print("Your access token is invalid or authentication of your token failed.")
+            quit()
+        elif resp.status_code == 403:
+            print("Your access token is valid but does not have then necessary permissions to access this resource.")
+            quit()
+        elif resp.status_code == 429:
+            print("Too many requests.  Please wait a few minutes and try again.")
+            quit()
+        else:
+            unknownapierror(resp)
+
     if resp.status_code == 200:
         resources = json.loads(resp.content)["resources"]
 
@@ -1092,22 +1368,8 @@ def getresourcegroupid(resource_group):
             return resource_id
         else:
             return 0
-
-    elif resp.status_code == 401:
-        print("Your access token is invalid or authentication of your token failed.")
-        quit()
-    elif resp.status_code == 403:
-        print("Your access token is valid but does not have then necessary permissions to access this resource.")
-        quit()
-    elif resp.status_code == 429:
-        print("Too many requests.  Please wait a few minutes and try again.")
-        quit()
-    elif resp.status_code == 500:
-        print("Your request could not be processed.  Please try again.")
     else:
-        print("Unknown error.")
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
     return resource_id
 
 def getsshkeyid(sshkey_name):
@@ -1115,7 +1377,18 @@ def getsshkeyid(sshkey_name):
     ## Return the sshkey_id of an sshkey name
     ################################################
 
-    resp = requests.get(rias_endpoint + '/v1/keys/' + version, headers=headers)
+    try:
+        resp = requests.get(rias_endpoint + '/v1/keys/' + version, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        unknownapierror(resp)
+
     if resp.status_code == 200:
         keylist = json.loads(resp.content)["keys"]
         sshkey_id = list(filter(lambda k: k['name'] == sshkey_name, keylist))
@@ -1125,11 +1398,7 @@ def getsshkeyid(sshkey_name):
             sshkeyid = None
 
     else:
-        # error stop execution
-        print("%s Error getting ssh keys." % (resp.status_code))
-        print("template=%s" % parms)
-        print("Error Data:  %s" % json.loads(resp.content)['errors'])
-        quit()
+        unknownapierror(resp)
 
     return sshkeyid
 
@@ -1147,28 +1416,65 @@ def createsshkey(sshkey):
                  "public_key": sshkey["public_key"],
                  "type": "rsa"
                  }
-
-        resp = requests.post(rias_endpoint + '/v1/keys' + version, json=parms, headers=headers)
+        try:
+            resp = requests.post(rias_endpoint + '/v1/keys' + version, json=parms, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            if resp.status_code == 400:
+                print("Invalid sshkey template provided.")
+                print("template: %s" % parms)
+                print("Error Data: %s" % errb)
+                quit()
+            else:
+                unknownapierror(resp)
 
         if resp.status_code == 201:
             print("SSH Key named %s created." % (sshkey["sshkey"]))
             sshkeyid = json.loads(resp.content)["id"]
-        elif resp.status_code == 400:
-            print("Invalid sshkey template provided.")
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
         else:
-            # error stop execution
-            print("%s Error creating sshkey %s." % (resp.status_code, sshkey["sshkey"]))
-            print("template=%s" % parms)
-            print("Error Data:  %s" % json.loads(resp.content)['errors'])
-            quit()
+            unknownapierror(resp)
 
     else:
         print("SSH Key %s already exists." % sshkey["sshkey"])
 
     return sshkeyid
+
+
+def unknownapierror(resp):
+    ################################################
+    ## Handle Unknown RESPONSE CODE errors
+    ################################################
+
+    if resp.status_code >= 200 and resp.status_code < 300:
+        print("Successful response, but unknown or unexpected response.")
+        print("Response Code: %s" % (resp.status_code))
+        print("Request Method: %s" % (resp.request.method))
+        print("Request URL: %s" % (resp.request.url))
+        print("Response: %s" % (resp.content))
+        quit()
+
+    if resp.status_code >= 300 and resp.status_code < 400:
+        print("Your request was redirected resulting in an unknown or unexpected response.")
+        print("Response Code: %s" % (resp.status_code))
+        print("Request Method: %s" % (resp.request.method))
+        print("Request URL: %s" % (resp.request.url))
+        quit()
+
+    if resp.status_code >= 400 and resp.status_code < 500:
+        print("Unsuccessful response with an unexpected error code.")
+        print("Response Code: %s" % (resp.status_code))
+        print("Request Method: %s" % (resp.request.method))
+        print("Request URL: %s" % (resp.request.url))
+        print("Error Data: %s" % (json.loads(resp.content)['errors']))
+        quit()
+
+    return
 
 
 #####################################
