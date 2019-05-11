@@ -26,6 +26,8 @@ def main(region, topology):
     else:
         resource_group = "default"
 
+    resource_group_id = getresourcegroupid(resource_group)
+
     if "default_network_acl" in topology:
         default_network_acl = topology["default_network_acl"]
     else:
@@ -33,7 +35,7 @@ def main(region, topology):
 
     # Create VPC
     vpc_name = topology["vpc"]
-    vpcid = createvpc(vpc_name, region, classic_access, resource_group, default_network_acl)
+    vpcid = createvpc(vpc_name, region, classic_access, resource_group_id, default_network_acl)
 
     # Create VPC's security groups
     for security_group in topology['security_groups']:
@@ -74,7 +76,7 @@ def main(region, topology):
                 for vpn_instance in subnet["vpn"]:
                     # A VPN instance is needed
                     # local_CIDR derviced from the zone address block
-                    createvpn(vpn_instance, zone["address_prefix_cidr"], subnet_id)
+                    createvpn(vpn_instance, zone["address_prefix_cidr"], subnet_id, resource_group_id)
 
             # Build instances for this subnet (if defined in topology)
             if "instances" in subnet:
@@ -113,7 +115,7 @@ def main(region, topology):
 
     if "load_balancers" in topology:
         for lb in topology["load_balancers"]:
-            lb_id = createloadbalancer(lb)
+            lb_id = createloadbalancer(lb, resource_group_id)
 
     return
 
@@ -244,6 +246,10 @@ def createnetworkacl(network_acl):
                         new_rule["port_min"] = rule["port_min"]
                     if "port_max" in rule:
                         new_rule["port_max"] = rule["port_max"]
+                    if "source_port_min" in rule:
+                        new_rule["source_port_min"] = rule["source_port_min"]
+                    if "source_port_max" in rule:
+                        new_rule["source_port_max"] = rule["source_port_max"]
 
                 if rule["protocol"] == "icmp":
                     if "type" in rule:
@@ -252,6 +258,7 @@ def createnetworkacl(network_acl):
                         new_rule["code"] = rule["code"]
             else:
                 new_rule["protocol"] = "all"
+
 
             rules.append(new_rule)
 
@@ -274,8 +281,10 @@ def createnetworkacl(network_acl):
                 print("Invalid network_acl template provided.")
                 print("template=%s" % parms)
                 print("Error Data:  %s" % errb)
+                print("Other Data:  %s" % resp.text)
                 quit()
             else:
+
                 unknownapierror(resp)
 
         if resp.status_code == 201:
@@ -501,7 +510,8 @@ def getvpnid(vpn_name):
 
     return vpn_gateway_id
 
-def createvpn(vpn, zone_address_prefix_cidr, subnet_id):
+
+def createvpn(vpn, zone_address_prefix_cidr, subnet_id, resource_group_id):
     #################################
     # Create a VPN and connection
     #################################
@@ -513,7 +523,8 @@ def createvpn(vpn, zone_address_prefix_cidr, subnet_id):
 
         parms = {
             "name": vpn["name"],
-            "subnet": {"id": subnet_id}
+            "subnet": {"id": subnet_id},
+            "resource_group": {"id": resource_group_id}
         }
         try:
             resp = requests.post(rias_endpoint + '/v1/vpn_gateways' + version, json=parms, headers=headers, timeout=30)
@@ -677,7 +688,7 @@ def getvpcid(vpc_name):
     return vpcid
 
 
-def createvpc(vpc_name, region, classic_access, resource_group, default_network_acl):
+def createvpc(vpc_name, region, classic_access, resource_group_id, default_network_acl):
     ##################################
     # Create VPC in desired region
     ##################################
@@ -689,9 +700,8 @@ def createvpc(vpc_name, region, classic_access, resource_group, default_network_
 
         # VPC does not exist so proceed with creating it.
 
-        # Get ACL and Resource Group ID's
+        # Get ACL Id
         default_network_acl_id = getnetworkaclid(default_network_acl)
-        resource_group_id = getresourcegroupid(resource_group)
 
         parms = {"name": vpc_name,
                  "classic_access": classic_access,
@@ -1115,7 +1125,8 @@ def assignfloatingip(instance_id):
         unknownapierror(resp)
     return
 
-def createloadbalancer(lb):
+
+def createloadbalancer(lb, resource_group_id):
     ################################################
     ## create LB instance
     ################################################
@@ -1257,7 +1268,8 @@ def createloadbalancer(lb):
              "is_public": lb['is_public'],
              "subnets": subnet_list,
              "listeners": listenerTemplate,
-             "pools": poolTemplate
+             "pools": poolTemplate,
+             "resource_group": {"id": resource_group_id}
              }
 
     try:
