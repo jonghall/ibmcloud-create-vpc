@@ -73,7 +73,7 @@ To access your VPC you will need to define a VPNaaS instance.    A VPN instance 
                     - 10.0.0.0/8
 ```
 
-To identify the available regions, you need the Infrastructure Services plugin for the IBMCLOUD CLi.   More information can be found about installing the CLI and plugins at: [https://console.bluemix.net/docs/cli/index.html#overview](https://console.bluemix.net/docs/cli/index.html#overview)
+To identify the available regions, you need the Infrastructure Services plugin for the IBMCLOUD CLi.   More information can be found about installing the CLI and plugins at: [https://cloud.ibm.com/docs/cli?topic=cloud-cli-ibmcloud-cli#overview](https://cloud.ibm.com/docs/cli?topic=cloud-cli-ibmcloud-cli#overview)
 ```
 ibmcloud login --sso
 ibmcloud is regions
@@ -236,3 +236,7 @@ To destroy the VPC created, and systematically delete all objects in the YAML fi
 - Only one VPC can be defined in YAML file
 - Only parameters shown in YAML file are currently supported
 - If objects already exist, script will not recreate the object and therefore does not evaluate if changes exist.   You must manually delete prior to execution of script if you want the changes to be implemented.
+
+## Documentation
+
+- [IBM Cloud VPC Infrastructure](https://cloud.ibm.com/docs/vpc-on-classic?topic=vpc-on-classic-getting-started)
