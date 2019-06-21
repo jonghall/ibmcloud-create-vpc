@@ -543,6 +543,43 @@ def getinstanceid(instance_name, subnet_name):
     else:
         return
 
+def stopinstance(instance_id):
+    ##############################################
+    # stop instance
+    ##############################################
+
+    if instance_id != None:
+
+        parms = {"type": "stop"}
+        resp = requests.post(rias_endpoint + '/v1/instances/' + instance_id + '/actions'+ version, json=parms, headers=headers)
+
+        if resp.status_code == 201:
+            print("Requested instance %s to be stopped successfully." % (instance_id))
+            while True:
+                resp = requests.get(rias_endpoint + '/v1/instances/' + instance_id + version, headers=headers);
+                if resp.status_code == 404:
+
+                    break;
+                instance_status = json.loads(resp.content)
+                if "status" in instance_status:
+                    if instance_status["status"] == "stopped":
+                        print("Instance %s has been stopped successfully." % (instance_id))
+                        break;
+                    else:
+                        print("Instance ID %s is still has a %s status. Sleeping for 5 seconds..." %(instance_id, instance_status["status"]))
+                        time.sleep(5)
+
+        elif resp.status_code == 404:
+            print("An instance with the specified identifier %s could not be found." % instance_id)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+        else:
+            print("%s Error stopping instance." % resp.status_code)
+            print("Error Data:  %s" % json.loads(resp.content)['errors'])
+            quit()
+    else:
+        print("Instance ID %s is empty" % (instance_id))
+    return
 
 def deleteinstance(instance_name, subnet_name):
     ##############################################
@@ -552,13 +589,14 @@ def deleteinstance(instance_name, subnet_name):
     instance_id = getinstanceid(instance_name, subnet_name)
 
     if instance_id != None:
+        stopinstance(instance_id)
         resp = requests.delete(rias_endpoint + '/v1/instances/' + instance_id + version, headers=headers)
 
         if resp.status_code == 204:
             print("Instance %s (%s) deleted successfully." % (instance_name, instance_id))
             while True:
-                print("Waiting for deletion of instance %s to complete.  Sleeping 30 seconds." % instance_name)
-                time.sleep(30)
+                print("Waiting for deletion of instance %s to complete.  Sleeping 5 seconds." % instance_name)
+                time.sleep(5)
                 if getinstanceid(instance_name, subnet_name) is None:
                     break
 
@@ -696,7 +734,7 @@ iam_file = open("iam_token", 'r')
 iam_token = iam_file.read()
 iam_token = iam_token[:-1]
 rias_endpoint = "https://us-south.iaas.cloud.ibm.com"
-version = "?version=2019-01-01"
+version = "?version=2019-06-04"
 headers = {"Authorization": iam_token}
 
 #####################################
@@ -712,13 +750,23 @@ else:
     filename = args.yaml
 
 with open(filename, 'r') as stream:
-    topology = yaml.load(stream)[0]
+    topology = yaml.load(stream, Loader=yaml.FullLoader)[0]
+
+# Get the preferred VPC generation
+if 'generation' in topology.keys():
+    generation = topology["generation"]
+else:
+    generation = 1;
+
+version = version + '&generation=' + str(generation)
 
 # Determine if region identified is available and get endpoint
 region = getregionavailability(topology["region"])
 
+print("Destroying VPC using generation %d" % generation)
+
 if region["status"] == "available":
-    rias_endpoint = region["endpoint"]
+    if generation == 1: rias_endpoint = region["endpoint"]
     main(region["name"])
 else:
     print("Region %s is not currently available." % region["name"])
