@@ -3,6 +3,8 @@
 ## Author: Jon Hall
 ##
 
+## Latest Next Gen API Spec: https://pages.github.ibm.com/riaas/api-spec/spec_genesis_2019-06-04/
+
 import requests, json, time, sys, yaml, argparse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -76,6 +78,7 @@ def main(region):
                     profile_name = template["profile_name"]
                     sshkey_name = template["sshkey"]
                     security_group = instance["security_group"]
+                    bandwidth = template["bandwidth"]
                     user_data = encodecloudinit(template["cloud-init-file"])
 
                     image_id = getimageid(template["image"])
@@ -90,11 +93,26 @@ def main(region):
 
                     for q in range(1, instance["quantity"] + 1):
                         instance_name = (instance["name"] % q)
+                        volumes = []
+                        for r in range(len(template["volumes"])):
+                            volume = {
+                                "volume": {
+                                    "name": instance_name + '-secondary-vol-' + str(r),
+                                    "capacity": template["volumes"][r]["capacity"],
+                                    "iops": template["volumes"][r]["iops"],
+                                    "profile": {
+                                        "name": "general-purpose"}
+                                },
+                                "delete_volume_on_instance_delete": True
+                            }
+                            volumes.append(volume);
                         instance_id = createinstance(zone["name"], instance_name, vpc_id, image_id, profile_name,
                                                      sshkey_id,
                                                      subnet_id,
                                                      security_group,
-                                                     user_data)
+                                                     user_data,
+                                                     bandwidth,
+                                                     volumes)
                         # IF floating_ip = True assign
                         if 'floating_ip' in instance:
                             if instance['floating_ip']:
@@ -404,28 +422,35 @@ def createvpc():
         vpc = list(filter(lambda vpc: vpc['name'] == topology["vpc"], vpcs))
         if len(vpc) > 0:
             print("The VPC named %s (%s) already exists in region." % (vpc[0]["name"], vpc[0]['id']))
-            default_network_acl_id = getnetworkaclid(topology["default_network_acl"])
+            # NG doesn't have network_acls at this time
+            if generation == 1: default_network_acl_id = getnetworkaclid(topology["default_network_acl"])
             vpc = vpc[0]
             return (vpc['id'])
         else:
             # VPC does not exist so proceed with creating it.
-            # Determine if network_acl name already exists and retreive id for use.
-            resp = requests.get(rias_endpoint + '/v1/network_acls/' + version, headers=headers)
-            if resp.status_code == 200:
-                acls = json.loads(resp.content)["network_acls"]
-                default_network_acl = \
-                    list(filter(lambda acl: acl['name'] == topology["default_network_acl"], acls))
 
-                if len(default_network_acl) > 0:
-                    print("%s network_acl already exists.   Using network_acl_id %s as default." % (
-                        default_network_acl[0]["name"], default_network_acl[0]['id']))
-                    default_network_acl_id = default_network_acl[0]['id']
+            # Determine if network_acl name already exists and retreive id for use.
+            if generation == 1: resp = requests.get(rias_endpoint + '/v1/network_acls/' + version, headers=headers)
+            if generation > 1 or resp.status_code == 200:
+                if generation == 1:
+                    acls = json.loads(resp.content)["network_acls"]
+                    default_network_acl = \
+                        list(filter(lambda acl: acl['name'] == topology["default_network_acl"], acls))
+
+                if generation > 1 or len(default_network_acl) > 0:
+                    if generation == 1:
+                        print("%s network_acl already exists.   Using network_acl_id %s as default." % (
+                            default_network_acl[0]["name"], default_network_acl[0]['id']))
+                        default_network_acl_id = default_network_acl[0]['id']
 
                     # create parameters for VPC creation
-                    parms = {"name": topology["vpc"],
-                             "classic_access": topology["classic_access"],
-                             "default_network_acl": {"id": default_network_acl_id}
-                             }
+                    if generation == 1:
+                        parms = {"name": topology["vpc"],
+                                 "classic_access": topology["classic_access"],
+                                 "default_network_acl": {"id": default_network_acl_id}
+                                 }
+                    else:
+                        parms = {"name": topology["vpc"]}
 
                     resp = requests.post(rias_endpoint + '/v1/vpcs' + version, json=parms, headers=headers)
 
@@ -526,16 +551,16 @@ def createsubnet(vpc_id, zone_name, subnet):
 
     network_acl_id = getnetworkaclid(subnet['network_acl'])
 
-    if network_acl_id == 0:
+    if generation == 1 and network_acl_id == 0:
         print("Network ACL named %s does not exists" % (subnet['network_acl']))
         quit()
 
     parms = {"name": subnet["name"],
              "ipv4_cidr_block": subnet['ipv4_cidr_block'],
-             "network_acl": {"id": network_acl_id},
              "zone": {"name": zone_name},
              "vpc": {"id": vpc_id}
              }
+    if generation == 1: parms["network_acl"] = {"id": network_acl_id},
     resp = requests.post(rias_endpoint + '/v1/subnets' + version, json=parms, headers=headers)
 
     if resp.status_code == 201:
@@ -574,7 +599,7 @@ def createsubnet(vpc_id, zone_name, subnet):
 
 
 def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, sshkey_id, subnet_id, security_group,
-                   user_data):
+                   user_data, bandwidth, volumes):
     ##############################################
     # create new instance in desired vpc and zone
     ##############################################
@@ -603,13 +628,13 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
              "user_data": user_data,
              "profile": {"name": profile_name},
              "keys": [{"id": sshkey_id}],
+             "bandwidth": bandwidth,
              "primary_network_interface": {
-                 "port_speed": 1000,
                  "name": "eth0",
                  "subnet": {"id": subnet_id},
                  "security_groups": [{"id": getsecuritygroupid(security_group, vpc_id)}]},
              "network_interfaces": [],
-             "volume_attachments": [],
+             "volume_attachments": volumes,
              "boot_volume_attachment": {
                  "volume": {
                      "capacity": 100,
@@ -653,11 +678,11 @@ def assignfloatingip(instance_id):
                 network_interface = instance_status["primary_network_interface"]["id"]
                 break
             else:
-                print("Waiting for instance creation to complete.   Sleeping for 10 seconds...")
-                time.sleep(10)
+                print("Waiting for instance creation to complete.   Sleeping for 5 seconds...")
+                time.sleep(5)
         else:
-            print("Waiting for instance creation to complete.   Sleeping for 10 seconds...")
-            time.sleep(10)
+            print("Waiting for instance creation to complete.   Sleeping for 5 seconds...")
+            time.sleep(5)
 
     # Check if floating IP already assigned
     resp = requests.get(
@@ -836,7 +861,8 @@ def encodecloudinit(filename):
     sub_message = MIMEText(contents, "cloud-config", sys.getdefaultencoding())
     sub_message.add_header('Content-Disposition', 'inline; filename="%s"' % (filename))
     combined_message.attach(sub_message)
-    return str(combined_message).encode()
+    #return str(combined_message).encode()
+    return str(combined_message)
 
 
 def getinstancetemplate(templates, search):
@@ -925,7 +951,7 @@ iam_file = open("iam_token", 'r')
 iam_token = iam_file.read()
 iam_token = iam_token[:-1]
 rias_endpoint = "https://us-south.iaas.cloud.ibm.com"
-version = "?version=2019-01-01"
+version = "?version=2019-06-04"
 headers = {"Authorization": iam_token}
 
 #####################################
@@ -941,13 +967,24 @@ else:
     filename = args.yaml
 
 with open(filename, 'r') as stream:
-    topology = yaml.load(stream)[0]
+    topology = yaml.load(stream, Loader=yaml.FullLoader)[0]
+
+# Get the preferred VPC generation
+if 'generation' in topology.keys():
+    generation = topology["generation"]
+else:
+    generation = 1;
+
+version = version + '&generation=' + str(generation)
 
 # Determine if region identified is available and get endpoint
 region = getregionavailability(topology["region"])
 
+print("Provisioning VPC using generation %d" % generation)
+
 if region["status"] == "available":
-    rias_endpoint = region["endpoint"]
+    # defect in the current NG api is preventing us from changing the endpoint
+    if generation == 1: rias_endpoint = region["endpoint"]
     main(region["name"])
 else:
     print("Region %s is not currently available." % region["name"])

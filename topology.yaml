@@ -4,6 +4,7 @@
   classic_access: false
   resource_group: default
   default_network_acl: ecommerce-vpc-default-acl
+  generation: 1
   address_prefix:
     -
       name: ecommerce-vpc-zone-1
