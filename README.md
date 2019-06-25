@@ -3,8 +3,8 @@ A typical requirement for a Virtual Private Cloud is the ability to logically is
 
 This approach allows for templating and consistency between application tiers, subnets, zones, and regions avoiding the need to manually define resources via a portal or CLI and avoiding the need to create your own provisioning scripts.
 
-## Typical Application Topology
-A typical Ecommerce web app deployed accross 3 zones consisting of 3 segmented network tiers using IBM Cloud Object Storage for images/media, IBM Cloud Databases such as MySQL or Redis for application databases and cache, and a VPN for on-premise API services.  Separate VPCs are created to completely isolate PROD from DEV environments.  
+## A Typical Enterprise Application Topology
+A typical E-commerce web app might be deployed accross 3 zones consisting of 3 segmented network tiers using IBM Cloud Object Storage for images/media, IBM Cloud Databases such as PostgrSQL or MySQL or self managed databases running on virtual servers and Redis for database session cache, and a VPN for on-premise API services and management.  Separate VPCs are created to completely isolate PROD from DEV environments.  
 
 ![](topology.png?raw=true)
 
@@ -20,51 +20,57 @@ The first step is to define within the yaml file the VPC name, region location, 
   resource_group: default
   default_network_acl: vpc-acl
 ```
-Referenced by the VPC is the default network ACL to use.   You can specify one that exists already, or define one within the YAML file.  The default network ACL is used as the default for all subnets created later and controls both ingress and egress traffic out of the subnets.   
+Referenced by the VPC is the default network ACL to use.   You can specify one that exists already, or define one within the YAML file.  The default network ACL is used as the default for all subnets created later and controls both ingress and egress traffic out of the subnets.   It is recommended that the default ACL deny traffic or restrict traffic to prevent an exposure.  The per subnet ACL's can be created and assigned which allow traffic based on the requirements of that application tier.
 ```
 -
     network_acls:
       - network_acl: ecommerce-vpc-default-acl
         rules:
-          - name: allow-all-in
+          - name: deny-all-in
             direction: inbound
-            action: allow
+            action: deny
             source: 0.0.0.0/0
             destination: 0.0.0.0/0
-          - name: allow-all-out
+          - name: deny-all-out
             direction: outbound
-            action: allow
+            action: deny
             source: 0.0.0.0/0
             destination: 0.0.0.0/0
 ```
-Next, if you prefer to use a different address prefix for your VPC you can define your IP CDIR block for each of the availability zones within the VPC created.   In the example below a netmask of /18 is used to define the IP Address space for each of the availability zones in the US South region. 
+Next, by default VPC's are created with a 10.240.0.0/18, 10.240.64.0/18, and 10.240.128.0/18 for non classic access VPCs.   Classic Access VPC's instead use 172.16.0.0/18, 172.16.64.0/18, and 172.16.128.0/18 for the address space of each zone.   However, if you prefer to use a different address prefix for the subnets in each zone, it can be specified as part of the Zone configuration.   In the example below a netmask of /18 is used to define the IP Address space in the zone 1 of the US South region.   
 
 ```
-  address_prefix:
+zones:
     -
-      name: address-prefix-zone-1-nane
-      zone: us-south-1
-      cidr: 172.16.0.0/18
-    -
-      name: address-prefix-zone-2-name
-      zone: us-south-2
-      cidr: 172.16.64.0/18
-    -
-      name: address-prefix-zone-3-name
-      zone: us-south-3
-      cidr: 172.16.128.0/18
+      name: us-south-1
+      address_prefix_cidr: 172.16.0.0/18 
 ```
-After you have defined the VPC, you must define the subnets required within each availability zone of the multi-zone region.  Subnet's are defined with CIDR block notation, and must be allocated out of the CIDR block defined previously for each availability zone.   Subnets can not overlap eachother.   Multiple subnets can be defined per zone.  If egress traffic will be allowed to the public Internet specify  PublicGateway: true parameter.   A network_acl can be specified.   If it does not already exist, one can be created in the network_acls section of the YAML file.
+
+After you have defined the VPC, and defined the address space for the zone, you must define the subnets required within each zone of the multi-zone region.  Subnet's are defined with CIDR block notation, and must be allocated out of the CIDR block defined for the availability zone.   Subnets can not overlap eachother.   Multiple subnets can be defined per zone.  If egress traffic will be allowed to the public Internet specify  PublicGateway: true parameter.   A network_acl can be specified and will be assigned instead of the default.   If it does not already exist, one can be created in the network_acls section of the YAML file.
 ```
  zones:
     -
       name: us-south-1
+      address_prefix_cidr: 172.20.0.0/18
       subnets:
         -
           name: subnet-name
           ipv4_cidr_block: 172.16.0.0/24
           network_acl: network-acl
           publicGateway: true
+```
+
+To access your VPC you will need to define a VPNaaS instance.    A VPN instance is required for each zone of the VPC, and multiple connections can be defined to the VPN instance for connectivity to your premise or other VPCs.  Specify the remote public address of the VPN device in peer_address.  If it is behind a NAT device use the address 0.0.0.0.   Specify the preshared_key and peer_cidrs to be connected through the connection.   Multiple connections can be created.
+
+```
+          vpn:
+            - name: webtier-us-south-1-vpn
+              connections:
+                - name: on-prem-to-vpc-us-south-1
+                  peer_address: 0.0.0.0
+                  preshared_key: mypresharedkey
+                  peer_cidrs:
+                    - 10.0.0.0/8
 ```
 
 To identify the available regions, you need the Infrastructure Services plugin for the IBMCLOUD CLi.   More information can be found about installing the CLI and plugins at: [https://console.bluemix.net/docs/cli/index.html#overview](https://console.bluemix.net/docs/cli/index.html#overview)
