@@ -90,7 +90,12 @@ def main(region, generation, topology):
                     profile_name = template["profile_name"]
                     sshkey_name = template["sshkey"]
                     security_group = instance["security_group"]
-                    bandwidth = template["bandwidth"]
+
+                    if "bandwidth" in template and generation == 2:
+                        bandwidth = template["bandwidth"]
+                    else:
+                        bandwidth = None
+
                     user_data = encodecloudinit(template["cloud-init-file"])
 
                     image_id = getimageid(template["image"])
@@ -106,18 +111,24 @@ def main(region, generation, topology):
                     for q in range(1, instance["quantity"] + 1):
                         instance_name = (instance["name"] % q) + "-" + zone["name"]
                         volumes = []
-                        for r in range(len(template["volumes"])):
-                            volume = {
-                                "volume": {
-                                    "name": instance_name + '-secondary-vol-' + str(r),
-                                    "capacity": template["volumes"][r]["capacity"],
-                                    "iops": template["volumes"][r]["iops"],
-                                    "profile": {
-                                        "name": "general-purpose"}
-                                },
-                                "delete_volume_on_instance_delete": True
-                            }
-                            volumes.append(volume);
+                        if "volumes" in template:
+                            for r in range(len(template["volumes"])):
+                                volume = {
+                                    "volume": {
+                                        "name": instance_name + '-secondary-vol-' + str(r),
+                                        "capacity": template["volumes"][r]["capacity"],
+                                    },
+                                    "delete_volume_on_instance_delete": template["volumes"][r][
+                                        "delete_volume_on_instance_delete"]
+                                }
+
+                                if "profile" in template["volumes"][r]:
+                                    volume["volume"]["profile"] = {"name": template["volumes"][r]["profile"]}
+                                else:
+                                    volume["iops"] = template["volumes"][r]["iops"]
+
+                                volumes.append(volume)
+
                         instance_id = createinstance(zone["name"], instance_name, vpcid, image_id, profile_name,
                                                      sshkey_id,
                                                      subnet_id,
@@ -918,7 +929,12 @@ def createsubnet(vpcid, zone_name, subnet):
                  "ipv4_cidr_block": subnet['ipv4_cidr_block'],
                  "zone": {"name": zone_name},
                  "vpc": {"id": vpcid}
-                 }if generation == 1: parms["network_acl"] = {"id": network_acl_id},
+                 }
+
+        # If Gen1 add network acl id to parameters
+        if generation == 1:
+            parms["network_acl"] = {"id": network_acl_id}
+
         try:
             resp = requests.post(rias_endpoint + '/v1/subnets' + version, json=parms, headers=headers, timeout=30)
             resp.raise_for_status()
@@ -989,6 +1005,17 @@ def getinstanceid(instance_name, subnetid):
     except requests.exceptions.HTTPError as errb:
         unknownapierror(resp)
 
+    if resp.status_code == 200:
+        instancelist = json.loads(resp.content)["instances"]
+        if len(instancelist) > 0:
+            instancelist = list(filter(lambda i: i['name'] == instance_name, instancelist))
+            if len(instancelist) > 0:
+                instanceid = instancelist[0]["id"]
+    else:
+        unknownapierror(resp)
+
+    return instanceid
+
 def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, sshkey_id, subnet_id, security_group,
                    user_data, bandwidth, volumes):
 
@@ -1002,16 +1029,15 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
 
         parms = {"zone": {"name": zone_name},
                  "name": instance_name,
-                 "vpc": {"id": vpcid},
+                 "vpc": {"id": vpc_id},
                  "image": {"id": image_id},
                  "user_data": user_data,
                  "profile": {"name": profile_name},
                  "keys": [{"id": sshkey_id}],
-                 "bandwidth": bandwidth,
-                     "primary_network_interface": {
+                 "primary_network_interface": {
                      "name": "eth0",
                      "subnet": {"id": subnet_id},
-                     "security_groups": [{"id": getsecuritygroupid(security_group, vpcid)}]},
+                     "security_groups": [{"id": getsecuritygroupid(security_group, vpc_id)}]},
                  "network_interfaces": [],
                  "volume_attachments": volumes,
                  "boot_volume_attachment": {
@@ -1022,6 +1048,9 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
                      "delete_volume_on_instance_delete": True
                  }
                  }
+
+        if bandwidth != None:
+            parms["bandwidth"] = bandwidth
 
         try:
             resp = requests.post(rias_endpoint + '/v1/instances' + version, json=parms, headers=headers, timeout=30)
@@ -1039,6 +1068,7 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
                 print("Error Data:  %s" % errb)
                 quit()
             else:
+                print(json.dumps(parms, indent=4))
                 unknownapierror(resp)
 
         if resp.status_code == 201:
