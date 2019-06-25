@@ -56,7 +56,7 @@
               connections:
                 - name: on-prem-to-wtvpc-us-south-1
                   peer_address: 0.0.0.0
-                  preshared_key: beacon1026
+                  preshared_key: vpnpassword
                   peer_cidrs:
                     - 192.168.248.0/24
     - name: us-south-2
@@ -95,7 +95,7 @@
               connections:
                 - name: on-prem-to-wtvpc-us-south-2
                   peer_address: 0.0.0.0
-                  preshared_key: beacon1026
+                  preshared_key: vpnpassword
                   peer_cidrs:
                     - 192.168.248.0/24
   load_balancers:
