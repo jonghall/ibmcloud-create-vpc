@@ -918,7 +918,10 @@ def createsubnet(vpcid, zone_name, subnet):
     if subnetid is None:
         # Subnet does not exist so create it
 
-        network_acl_id = getnetworkaclid(subnet['network_acl'])
+        if "network_acl" in subnet:
+            network_acl_id = getnetworkaclid(subnet['network_acl'])
+        else:
+            network_acl_id = None
 
         if generation == 1 and network_acl_id is None:
             # Error stop processing, ACL does not exist to assign to subnet
