@@ -608,6 +608,7 @@ def stopinstance(instance_id):
         print("Instance ID %s is empty" % (instance_id))
     return
 
+
 def deletevpn(vpn_id, vpn_name):
     ##############################################
     # delete vpn
