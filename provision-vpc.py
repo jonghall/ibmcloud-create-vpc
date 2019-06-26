@@ -5,7 +5,7 @@
 
 ## Latest Next Gen API Spec: https://pages.github.ibm.com/riaas/api-spec/spec_genesis_2019-06-04/
 
-import requests, json, time, sys, yaml, argparse
+import requests, json, time, sys, yaml, os, argparse, configparser, urllib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -151,13 +151,71 @@ def main(region, generation, topology):
 
     return
 
+
+def parse_apiconfig(ini_file):
+    ################################################
+    ## Get APIKey from ini file
+    ################################################
+
+    dirpath = os.getcwd()
+    config = configparser.ConfigParser()
+
+    try:
+        # attempt to open ini file to read apikey. Only proceed if found
+        filepath = dirpath + "/" + ini_file
+        open(filepath)
+
+    except FileNotFoundError:
+        raise Exception("Unable to find or open specified ini file.")
+        quit()
+    else:
+        config.read(filepath)
+
+    apikey = config["API"]["apikey"]
+
+    return apikey
+
+
+def getiamtoken(apikey):
+    ################################################
+    ## Get Bearer Token using apikey
+    ################################################
+
+    headers = {"Content-Type": "application/x-www-form-urlencoded",
+               "Accept": "application/json"}
+
+    parms = {"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": apikey}
+
+    try:
+        resp = requests.post("https://iam.cloud.ibm.com/identity/token?" + urllib.parse.urlencode(parms),
+                             headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        print("Invalid token request.")
+        print("template=%s" % parms)
+        print("Error Data:  %s" % errb)
+        print("Other Data:  %s" % resp.text)
+        quit()
+
+    iam = resp.json()
+
+    iamtoken = {"Authorization": "Bearer " + iam["access_token"]}
+
+    return iamtoken
+
 def getzones(region):
     #############################
     # Get list of zones in Region
     #############################
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/regions/' + region + '/zones' + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/regions/' + region + '/zones' + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -185,7 +243,7 @@ def getregionavailability(region):
     #############################
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/regions/' + region + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/regions/' + region + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -215,7 +273,7 @@ def getnetworkaclid(network_acl_name):
     ################################################
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/network_acls/' + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/network_acls/' + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -300,7 +358,7 @@ def createnetworkacl(network_acl):
         }
 
         try:
-            resp = requests.post(rias_endpoint + '/v1/network_acls' + version, json=parms, headers=headers, timeout=30)
+            resp = requests.post(iaas_endpoint + '/v1/network_acls' + version, json=parms, headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
             print("Error Connecting:", errc)
@@ -337,7 +395,7 @@ def getsecuritygroupid(security_group, vpcid):
     ################################################
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/security_groups/' + version + "&vpc.if=" + vpcid, headers=headers,
+        resp = requests.get(iaas_endpoint + '/v1/security_groups/' + version + "&vpc.if=" + vpcid, headers=headers,
                             timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
@@ -408,7 +466,7 @@ def createsecuritygroup(security_group, vpcid):
             "vpc": {"id": vpcid}
         }
         try:
-            resp = requests.post(rias_endpoint + '/v1/security_groups' + version, json=parms, headers=headers,
+            resp = requests.post(iaas_endpoint + '/v1/security_groups' + version, json=parms, headers=headers,
                                  timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
@@ -445,7 +503,7 @@ def getpublicgatewayid(zone_name, vpcid):
     #################################
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/public_gateways' + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/public_gateways' + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -485,7 +543,7 @@ def createpublicgateway(gateway_name, zone_name, vpcid):
     }
 
     try:
-        resp = requests.post(rias_endpoint + '/v1/public_gateways' + version, json=parms, headers=headers, timeout=30)
+        resp = requests.post(iaas_endpoint + '/v1/public_gateways' + version, json=parms, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -517,7 +575,7 @@ def getvpnid(vpn_name):
     ## Lookup VPN ID by name
     ################################################
     try:
-        resp = requests.get(rias_endpoint + '/v1/vpn_gateways' + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/vpn_gateways' + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -559,7 +617,7 @@ def createvpn(vpn, zone_address_prefix_cidr, subnet_id, resource_group_id):
             "resource_group": {"id": resource_group_id}
         }
         try:
-            resp = requests.post(rias_endpoint + '/v1/vpn_gateways' + version, json=parms, headers=headers, timeout=30)
+            resp = requests.post(iaas_endpoint + '/v1/vpn_gateways' + version, json=parms, headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
             print("Error Connecting:", errc)
@@ -595,7 +653,7 @@ def createvpn(vpn, zone_address_prefix_cidr, subnet_id, resource_group_id):
                 }
 
                 try:
-                    resp = requests.post(rias_endpoint + '/v1/vpn_gateways/' + vpn_id + "/connections" + version,
+                    resp = requests.post(iaas_endpoint + '/v1/vpn_gateways/' + vpn_id + "/connections" + version,
                                          json=parms,
                                          headers=headers, timeout=30)
                     resp.raise_for_status()
@@ -632,7 +690,7 @@ def attachpublicgateway(gateway_id, subnet_id):
     count = 0
     while count < 12:
         try:
-            resp = requests.get(rias_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers, timeout=30)
+            resp = requests.get(iaas_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
             print("Error Connecting:", errc)
@@ -653,7 +711,7 @@ def attachpublicgateway(gateway_id, subnet_id):
 
     parms = {"id": gateway_id}
     try:
-        resp = requests.put(rias_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version, json=parms,
+        resp = requests.put(iaas_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version, json=parms,
                             headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
@@ -694,7 +752,7 @@ def getvpcid(vpc_name):
 
     # get list of VPCs in region to check if VPC already exists
     try:
-        resp = requests.get(rias_endpoint + '/v1/vpcs/' + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/vpcs/' + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -749,7 +807,7 @@ def createvpc(vpc_name, region, classic_access, resource_group_id, default_netwo
                     }
 
         try:
-            resp = requests.post(rias_endpoint + '/v1/vpcs' + version, json=parms, headers=headers, timeout=30)
+            resp = requests.post(iaas_endpoint + '/v1/vpcs' + version, json=parms, headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
             print("Error Connecting:", errc)
@@ -789,7 +847,7 @@ def getaddressprefixid(vpcid, name):
     addressprefixid = None
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/vpcs/' + vpcid + '/address_prefixes' + version, headers=headers,
+        resp = requests.get(iaas_endpoint + '/v1/vpcs/' + vpcid + '/address_prefixes' + version, headers=headers,
                             timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
@@ -831,7 +889,7 @@ def createaddressprefix(vpcid, zone, cidr):
                  "cidr": cidr
                  }
         try:
-            resp = requests.post(rias_endpoint + '/v1/vpcs/' + vpcid + '/address_prefixes' + version, json=parms,
+            resp = requests.post(iaas_endpoint + '/v1/vpcs/' + vpcid + '/address_prefixes' + version, json=parms,
                                  headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
@@ -882,7 +940,7 @@ def getsubnetid(subnet_name):
     # get list of subnets in region
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/subnets/' + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -939,7 +997,7 @@ def createsubnet(vpcid, zone_name, subnet):
             parms["network_acl"] = {"id": network_acl_id}
 
         try:
-            resp = requests.post(rias_endpoint + '/v1/subnets' + version, json=parms, headers=headers, timeout=30)
+            resp = requests.post(iaas_endpoint + '/v1/subnets' + version, json=parms, headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
             print("Error Connecting:", errc)
@@ -966,7 +1024,7 @@ def createsubnet(vpcid, zone_name, subnet):
             newsubnet = resp.json()
             count = 0
             while count < 12:
-                resp = requests.get(rias_endpoint + '/v1/subnets/' + newsubnet["id"] + version, headers=headers);
+                resp = requests.get(iaas_endpoint + '/v1/subnets/' + newsubnet["id"] + version, headers=headers);
                 subnet_status = json.loads(resp.content)["status"]
                 if subnet_status == "available":
                     break
@@ -996,7 +1054,7 @@ def getinstanceid(instance_name, subnetid):
     instanceid = None
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.id=" + subnetid,
+        resp = requests.get(iaas_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.id=" + subnetid,
                             headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
@@ -1056,7 +1114,7 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
             parms["bandwidth"] = bandwidth
 
         try:
-            resp = requests.post(rias_endpoint + '/v1/instances' + version, json=parms, headers=headers, timeout=30)
+            resp = requests.post(iaas_endpoint + '/v1/instances' + version, json=parms, headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
             print("Error Connecting:", errc)
@@ -1095,7 +1153,7 @@ def assignfloatingip(instance_id):
     # Verify instance provisioning complete
     while True:
         try:
-            resp = requests.get(rias_endpoint + '/v1/instances/' + instance_id + version, headers=headers, timeout=30)
+            resp = requests.get(iaas_endpoint + '/v1/instances/' + instance_id + version, headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
             print("Error Connecting:", errc)
@@ -1121,7 +1179,7 @@ def assignfloatingip(instance_id):
     # Check if floating IP already assigned
     try:
         resp = requests.get(
-            rias_endpoint + "/v1/instances/" + instance_id + "/network_interfaces/" + network_interface + "/floating_ips" + version,
+            iaas_endpoint + "/v1/instances/" + instance_id + "/network_interfaces/" + network_interface + "/floating_ips" + version,
             headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
@@ -1150,7 +1208,7 @@ def assignfloatingip(instance_id):
     }
 
     try:
-        resp = requests.post(rias_endpoint + '/v1/floating_ips' + version, json=parms, headers=headers, timeout=30)
+        resp = requests.post(iaas_endpoint + '/v1/floating_ips' + version, json=parms, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -1183,7 +1241,7 @@ def createloadbalancer(lb, resource_group_id):
 
     # get list of load balancers to check if instance already exists
     try:
-        resp = requests.get(rias_endpoint + '/v1/load_balancers/' + version,
+        resp = requests.get(iaas_endpoint + '/v1/load_balancers/' + version,
                             headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
@@ -1240,7 +1298,7 @@ def createloadbalancer(lb, resource_group_id):
 
                 try:
                     resp = requests.get(
-                        rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.name=" + subnet[
+                        iaas_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.name=" + subnet[
                             "name"], headers=headers, timeout=30)
                     resp.raise_for_status()
                 except requests.exceptions.ConnectionError as errc:
@@ -1295,7 +1353,7 @@ def createloadbalancer(lb, resource_group_id):
             # get list of subnets in region to check if subnet already exists
 
             try:
-                resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers, timeout=30)
+                resp = requests.get(iaas_endpoint + '/v1/subnets/' + version, headers=headers, timeout=30)
                 resp.raise_for_status()
             except requests.exceptions.ConnectionError as errc:
                 print("Error Connecting:", errc)
@@ -1323,7 +1381,7 @@ def createloadbalancer(lb, resource_group_id):
              }
 
     try:
-        resp = requests.post(rias_endpoint + '/v1/load_balancers' + version, json=parms, headers=headers, timeout=30)
+        resp = requests.post(iaas_endpoint + '/v1/load_balancers' + version, json=parms, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -1376,7 +1434,7 @@ def getimageid(image_name):
     ################################################
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/images/' + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/images/' + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -1441,7 +1499,7 @@ def getsshkeyid(sshkey_name):
     ################################################
 
     try:
-        resp = requests.get(rias_endpoint + '/v1/keys/' + version, headers=headers, timeout=30)
+        resp = requests.get(iaas_endpoint + '/v1/keys/' + version, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.exceptions.ConnectionError as errc:
         print("Error Connecting:", errc)
@@ -1480,7 +1538,7 @@ def createsshkey(sshkey):
                  "type": "rsa"
                  }
         try:
-            resp = requests.post(rias_endpoint + '/v1/keys' + version, json=parms, headers=headers, timeout=30)
+            resp = requests.post(iaas_endpoint + '/v1/keys' + version, json=parms, headers=headers, timeout=30)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as errc:
             print("Error Connecting:", errc)
@@ -1545,13 +1603,15 @@ def unknownapierror(resp):
 #####################################
 
 # Create iam_token file by running gettoken.sh
-iam_file = open("iam_token", 'r')
-iam_token = iam_file.read()
-iam_token = iam_token[:-1]
-rias_endpoint = "https://us-south.iaas.cloud.ibm.com"
+# iam_file = open("iam_token", 'r')
+# iam_token = iam_file.read()
+# iam_token = iam_token[:-1]
+# headers = {"Authorization": iam_token}
+
+iaas_endpoint = "https://us-south.iaas.cloud.ibm.com"
 resource_controller_endpoint = "https://resource-controller.cloud.ibm.com"
 version = "?version=2019-06-04"
-headers = {"Authorization": iam_token}
+
 
 #####################################
 # Read desired topology YAML file
@@ -1559,32 +1619,44 @@ headers = {"Authorization": iam_token}
 
 parser = argparse.ArgumentParser(description="Create VPC topology.")
 parser.add_argument("-y", "--yaml", help="YAML based topology file to create")
+parser.add_argument("-k", "--apikey", help="File which contains apikey.")
+
 args = parser.parse_args()
 if args.yaml is None:
     filename = "topology.yaml"
 else:
     filename = args.yaml
 
+if args.apikey is None:
+    ini_file = "provision-vpc.ini"
+else:
+    ini_file = args.apikey
+
+# Read INI file and get bearer IAM token
+apikey = parse_apiconfig(ini_file)
+headers = getiamtoken(apikey)
+
 with open(filename, 'r') as stream:
     topology = yaml.load(stream, Loader=yaml.FullLoader)[0]
 
-# Get the preferred VPC generation
+# Get the preferred VPC generation to use, default to gen 1 if not specified
 if 'generation' in topology.keys():
     generation = topology["generation"]
 else:
-    generation = 1;
+    generation = 1
+
+# Determine if region identified is available and get endpoint to use
 
 version = version + '&generation=' + str(generation)
-
-# Determine if region identified is available and update endpoint
 region = getregionavailability(topology["region"])
 
-print("Provisioning VPC using generation %d" % generation)
-
 if region["status"] == "available":
-    # defect in the current NG api is preventing changing the endpoint
-    if generation == 1:
-        rias_endpoint = region["endpoint"]
+    iaas_endpoint = region["endpoint"]
+    if generation == 2:
+        # override endpoint and force us-south until GA
+        iaas_endpoint = "https://us-south.iaas.cloud.ibm.com"
+    print("Provisioning VPC using generation %d" % generation)
+    print("Using VPC endpoint %s" % iaas_endpoint)
     main(region["name"], generation, topology)
 else:
     print("Region %s is not currently available." % region["name"])
