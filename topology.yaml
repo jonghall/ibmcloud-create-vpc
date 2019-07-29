@@ -1,383 +1,121 @@
-- vpc: ecomm-ussouth
+- vpc: test002
   region: us-south
-  classic_access: false
-  resource_group: default
-  default_network_acl: ecomm-default-acl
-  generation: 1
+  generation: 2
+  resource_group: vpc_sandbox
   instanceTemplates:
-    - template: web_server
-      image: ubuntu-16.04-amd64
-      profile_name: c-2x4
-      sshkey: my-ssh-key
-      cloud-init-file: cloud-init.txt
-    - template: app_server
-      image: ubuntu-16.04-amd64
-      profile_name: c-4x8
-      sshkey: my-ssh-key
-      cloud-init-file: cloud-init.txt
+    - template: webapp_server
+      image: 100GB - Ubuntu / Ubuntu / 16.04-64 Minimal for VSI
+      profile_name: c2-2x4
+      sshkey: jonhall
+      cloud-init-file: cloud-init-webapp.txt
+      volumes:
+        - capacity: 100
+          profile: general-purpose
+          delete_volume_on_instance_delete: true
     - template: db_server
-      image: ubuntu-16.04-amd64
-      profile_name: m-8x32
-      sshkey: my-ssh-key
-      cloud-init-file: cloud-init.txt
+      image: 100GB - Ubuntu / Ubuntu / 16.04-64 Minimal for VSI
+      profile_name: b2-16x64
+      sshkey: jonhall
+      cloud-init-file: cloud-init-db.txt
+      volumes:
+        - capacity: 500
+          profile: 10iops-tier
+          delete_volume_on_instance_delete: true
   zones:
-    -
-      name: us-south-1
-      address_prefix_cidr: 172.16.0.0/18
+    - name: us-south-1
+      address_prefix_cidr: 172.21.0.0/21
       subnets:
-        - name: webtier-us-south-1
-          ipv4_cidr_block: 172.16.0.0/24
-          network_acl: ecomm-webtier-acl
+        - name: test002-webapptier-us-south-1
+          ipv4_cidr_block: 172.21.0.0/24
           publicGateway: true
-          vpn:
-            - name: webtier-us-south-1-vpn
-              connections:
-                - name: on-prem-to-vpc-us-south-1
-                  peer_address: 0.0.0.0
-                  preshared_key: mypresharedkey
-                  peer_cidrs:
-                    - 10.0.0.0/8
           instances:
-            - name: web%02d
+            - name: webapp%02d
               quantity: 1
-              template: web_server
-              floating_ip: false
-              security_group: ecomm-webtier-sg
-              in_lb_pool:
-                - lb_name: ecomm-webtier-lb
-                  lb_pool: nginx-http
-                  listen_port: 80
-        - name: apptier-us-south-1
-          ipv4_cidr_block: 172.16.16.0/24
-          network_acl: ecomm-apptier-acl
-          publicGateway: true
-          vpn:
-            - name: webtier-us-south-2-vpn
-              connections:
-                - name: on-prem-to-vpc-us-south-2
-                  peer_address: 0.0.0.0
-                  preshared_key: mypresharedkey
-                  peer_cidrs:
-                    - 10.0.0.0/8
-          instances:
-            - name: app%02d
-              quantity: 1
-              template: app_server
-              floating_ip: false
-              security_group: ecomm-apptier-sg
-              in_lb_pool:
-                - lb_name: ecomm-apptier-lb
-                  lb_pool: index_php_upstream
-                  listen_port: 8090
-                - lb_name: ecomm-apptier-lb
-                  lb_pool: direct_php_upstream
-                  listen_port: 8091
-        - name: dbtier-us-south-1
-          ipv4_cidr_block: 172.16.32.0/24
-          network_acl: ecomm-sbtier-acl
+              template: webapp_server
+              floating_ip: true
+              security_group: test002-webapptier-sg
+        - name: test002-dbtier-us-south-1
+          ipv4_cidr_block: 172.21.1.0/24
           publicGateway: true
           instances:
-            - name: db%02d
-              quantity: 1
-              template: app_server
-              floating_ip: false
-              security_group: ecomm-dbtier-sg
-    -
-      name: us-south-2
-      address_prefix_cidr: 172.16.64.0/18
-      subnets:
-        - name: webtier-us-south-2
-          ipv4_cidr_block: 172.16.64.0/24
-          publicGateway: true
-          network_acl: ecomm-webtier-acl
-          instances:
-            - name: web%02d
-              quantity: 1
-              template: web_server
-              floating_ip: false
-              security_group: ecomm-webtier-sg
-              in_lb_pool:
-                - lb_name: ecomm-webtier-lb
-                  lb_pool: nginx-http
-                  listen_port: 80
-        - name: apptier-us-south-2
-          ipv4_cidr_block: 172.16.80.0/24
-          network_acl: ecomm-apptier-acl
-          publicGateway: true
-          instances:
-            - name: app%02d
-              quantity: 1
-              template: app_server
-              floating_ip: false
-              security_group: ecomm-apptier-sg
-              in_lb_pool:
-                - lb_name: ecomm-apptier-lb
-                  lb_pool: index_php_upstream
-                  listen_port: 8090
-                - lb_name: ecomm-apptier-lb
-                  lb_pool: direct_php_upstream
-                  listen_port: 8091
-        - name: dbtier-us-south-2
-          ipv4_cidr_block: 172.16.96.0/24
-          network_acl: ecomm-dbtier-acl
-          publicGateway: true
-          instances:
-            - name: db%02d
+            - name: mysql%02d
               quantity: 1
               template: db_server
-              floating_ip: false
-              security_group: ecomm-dbtier-sg
-    -
-      name: us-south-3
-      address_prefix_cidr: 172.16.128.0/18
+              floating_ip: true
+              security_group: test002-dbtier-sg
+    - name: us-south-2
+      address_prefix_cidr: 172.21.8.0/21
       subnets:
-        - name: webtier-us-south-3
-          ipv4_cidr_block: 172.16.128.0/24
-          network_acl: ecomm-webtier-acl
-          publicGateway: true
-          vpn:
-            - name: webtier-us-south-3-vpn
-              connections:
-                - name: on-prem-to-vpc-us-south-3
-                  peer_address: 0.0.0.0
-                  preshared_key: mypresharedkey
-                  peer_cidrs:
-                    - 10.0.0.0/8
-          instances:
-            - name: web%02d
-              quantity: 1
-              template: web_server
-              floating_ip: false
-              security_group: ecomm-webtier-sg
-              in_lb_pool:
-                - lb_name: ecomm-webtier-lb
-                  lb_pool: nginx-http
-                  listen_port: 80
-        - name: apptier-us-south-3
-          ipv4_cidr_block: 172.16.144.0/24
-          network_acl: ecomm-apptier-acl
+        - name: test002-webapptier-us-south-2
+          ipv4_cidr_block: 172.21.8.0/24
           publicGateway: true
           instances:
-            - name: app%02d
+            - name: webapp%02d
               quantity: 1
-              template: app_server
-              floating_ip: false
-              security_group: ecomm-apptier-sg
-              in_lb_pool:
-                - lb_name: ecomm-apptier-lb
-                  lb_pool: index_php_upstream
-                  listen_port: 8090
-                - lb_name: ecomm-apptier-lb
-                  lb_pool: direct_php_upstream
-                  listen_port: 8091
-        - name: dbtier-us-south-3
-          ipv4_cidr_block: 172.16.160.0/24
-          network_acl: ecomm-dbtier-acl
+              template: webapp_server
+              floating_ip: true
+              security_group: test002-webapptier-sg
+        - name: test002-dbtier-us-south-2
+          ipv4_cidr_block: 172.21.9.0/24
           publicGateway: true
           instances:
-            - name: db%02d
+            - name: mysql%02d
               quantity: 1
-               template: db_server
-              floating_ip: false
-               security_group: ecomm-dbtier-sg
-  load_balancers:
-    - lbInstance: ecomm-webtier-lb
-      is_public: true
-      subnets:
-        - webtier-us-south-1
-        - webtier-us-south-2
-      listeners:
-        -
-          protocol: http
-          port: 80
-          connection_limit: 100
-          default_pool_name: nginx-http
-      pools:
-        -
-          name: nginx-http
-          protocol: http
-          algorithm: round_robin
-          health_monitor:
-            type: http
-            delay: 5
-            max_retries: 2
-            timeout: 2
-            url_path: /nginx_status
-    - lbInstance: ecomm-apptier-lb
-      is_public: false
-      subnets:
-        - apptier-us-south-1
-        - apptier-us-south-2
-      listeners:
-        -
-          protocol: http
-          port: 8090
-          connection_limit: 100
-          default_pool_name: index_php_upstream
-        -
-          protocol: http
-          port: 8091
-          connection_limit: 100
-          default_pool_name: direct_php_upstream
-      pools:
-        - name: index_php_upstream
-          protocol: http
-          algorithm: least_connections
-          health_monitor:
-            type: http
-            delay: 5
-            max_retries: 2
-            timeout: 2
-            url_path: /
-        - name: direct_php_upstream
-          protocol: http
-          algorithm: least_connections
-          health_monitor:
-            type: http
-            delay: 5
-            max_retries: 2
-            timeout: 2
-            url_path: /
+              template: db_server
+              floating_ip: true
+              security_group: test002-dbtier-sg
   security_groups:
-    - security_group: ecomm-webtier-sg
+    - security_group: test002-webapptier-sg
       rules:
-         -
-          direction: inbound
+        - direction: inbound
           ip_version: ipv4
           protocol: all
           remote:
-            cidr_block: 172.16.0.0/24
-         -
-          direction: inbound
+            cidr_block: 172.21.0.0/24
+        - direction: inbound
           ip_version: ipv4
           protocol: all
           remote:
-            cidr_block: 172.16.64.0/24
-         -
-          direction: inbound
+            cidr_block: 172.21.8.0/24
+        - direction: inbound
           ip_version: ipv4
           protocol: all
           remote:
-            cidr_block: 172.16.128.0/24
-         -
-          direction: outbound
+            cidr_block: 24.252.30.9/32
+        - direction: outbound
           ip_version: ipv4
           protocol: all
           remote:
             cidr_block: 0.0.0.0/0
-    - security_group: ecomm-apptier-sg
-      rules:
-        -
-          direction: inbound
-          ip_version: ipv4
-          protocol: all
-          remote:
-            cidr_block: 172.16.16.0/24
-        -
-          direction: inbound
-          ip_version: ipv4
-          protocol: all
-          remote:
-            cidr_block: 172.16.80.0/24
-        -
-          direction: inbound
-          ip_version: ipv4
-          protocol: all
-          remote:
-            cidr_block: 172.16.144.0/24
-        -
-          direction: inbound
-          ip_version: ipv4
-          port_min: 8090
-          port_max: 8091
-          protocol: tcp
-          remote:
-            security_group: ecomm-webtier-sg
-        -
-          direction: outbound
-          ip_version: ipv4
-          protocol: all
-          remote:
-            cidr_block: 0.0.0.0/0
-    - security_group: ecomm-dbtier-sg
+    - security_group: test002-dbtier-sg
       rules:
         - direction: inbound
           ip_version: ipv4
           protocol: all
           remote:
-            cidr_block: 172.16.32.0/24
+            cidr_block: 172.21.1.0/24
         - direction: inbound
           ip_version: ipv4
           protocol: all
           remote:
-            cidr_block: 172.16.96.0/24
+            cidr_block: 172.21.9.0/24
         - direction: inbound
           ip_version: ipv4
           protocol: all
           remote:
-            cidr_block: 172.16.160.0/24
+            cidr_block: 24.252.30.9/32
         - direction: inbound
           ip_version: ipv4
           port_min: 3306
           port_max: 3306
           protocol: tcp
           remote:
-            security_group: ecomm-apptier-sg
+            security_group: test002-webapptier-sg
         - direction: outbound
           ip_version: ipv4
           protocol: all
           remote:
             cidr_block: 0.0.0.0/0
-  network_acls:
-    - network_acl: ecomm-default-acl
-      rules:
-        - name: deny-all-in
-          direction: inbound
-          action: deny
-          source: 0.0.0.0/0
-          destination: 0.0.0.0/0
-        - name: deny-all-out
-          direction: outbound
-          action: deny
-          source: 0.0.0.0/0
-          destination: 0.0.0.0/0
-    - network_acl: ecomm-webtier-acl
-      rules:
-        - name: allow-all-in
-          direction: inbound
-          action: allow
-          source: 0.0.0.0/0
-          destination: 0.0.0.0/0
-        - name: allow-all-out
-          direction: outbound
-          action: allow
-          source: 0.0.0.0/0
-          destination: 0.0.0.0/0
-    - network_acl: ecomm-apptier-acl
-      rules:
-        - name: allow-all-in
-          direction: inbound
-          action: allow
-          source: 0.0.0.0/0
-          destination: 0.0.0.0/0
-        - name: allow-all-out
-          direction: outbound
-          action: allow
-          source: 0.0.0.0/0
-          destination: 0.0.0.0/0
-    - network_acl: ecomm-dbtier-acl
-      rules:
-        - name: allow-all-in
-          direction: inbound
-          action: allow
-          source: 0.0.0.0/0
-          destination: 0.0.0.0/0
-        - name: allow-all-out
-          direction: outbound
-          action: allow
-          source: 0.0.0.0/0
-          destination: 0.0.0.0/0
   sshkeys:
-    - sshkey: my-ssh-key
-      public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
-
+    - sshkey: jonhall
+      public_key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn'

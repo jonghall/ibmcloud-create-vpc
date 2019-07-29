@@ -1,232 +1,116 @@
-## IBMCLOUD-CREATE-VPC
-A typical requirement for a Virtual Private Cloud is the ability to logically isolate a public cloud into different private networks made up tiers and/or different applications environments.   This Python script reads a yaml based topology configuration file and instantiates the specified VPC, security-groups, network acls, subnets, compute resources and the required public and private load balancers accross the desired availability zones within the region specified to standup the application topology withouht manually creating it.
+# NExtgen test #2 - Deploying a n-Tier Web App in a NG Virtual Private Cloud using REST API & Ansible
 
-This approach allows for templating and consistency between application tiers, subnets, zones, and regions avoiding the need to manually define resources via a portal or CLI and avoiding the need to create your own provisioning scripts.
+## Purpose
 
-## Typical Application Topology
-A typical Ecommerce web app deployed accross 3 zones consisting of 3 segmented network tiers using IBM Cloud Object Storage for images/media, IBM Cloud Databases such as MySQL or Redis for application databases and cache, and a VPN for on-premise API services.  Separate VPCs are created to completely isolate PROD from DEV environments.  
+The purpose of this test is to prove the readiness of VPC NG to support the deployment of expected workloads using Terraform
+and Ansible. 
 
-![](topology.png?raw=true)
+High Level Architecture
 
-## Configuring your VPC topology
-The topology is configured using standard YAML format
+1. Infrastructure
+  - Public Cloud isolation using a VPC
+  - RFC1918 private bring-your-own-IP addresses
+  - Application and data layers deployed on isolated subnets accross different availability zones
+  - Network isolation defined logically using Security Groups and ACLs
+  - Global DDOS and Global Load Balancing 
+  - <s>VPN-as-a-Service to establish remote secure connectivity between on-pream and the VPC</s>
+  - SysDig & LogDNA for infrastructure and application monitoring
 
-The first step is to define within the yaml file the VPC name, region location, and characteristics of the vpc.
-```
--
-  vpc: vpcname
-  region: us-south
-  classic_access: false
-  resource_group: default
-  default_network_acl: vpc-acl
-```
-Referenced by the VPC is the default network ACL to use.   You can specify one that exists already, or define one within the YAML file.  The default network ACL is used as the default for all subnets created later and controls both ingress and egress traffic out of the subnets.   
-```
--
-    network_acls:
-      - network_acl: ecommerce-vpc-default-acl
-        rules:
-          - name: allow-all-in
-            direction: inbound
-            action: allow
-            source: 0.0.0.0/0
-            destination: 0.0.0.0/0
-          - name: allow-all-out
-            direction: outbound
-            action: allow
-            source: 0.0.0.0/0
-            destination: 0.0.0.0/0
-```
-Next, if you prefer to use a different address prefix for your VPC you can define your IP CDIR block for each of the availability zones within the VPC created.   In the example below a netmask of /18 is used to define the IP Address space for each of the availability zones in the US South region. 
+2. Application
+  - A horizontally scaleable web application deployed into a two different availability zones
+  - Multiple database servers across two availability zones
+  - A master/slave data replication strategy across availability zones
 
-```
-  address_prefix:
-    -
-      name: address-prefix-zone-1-nane
-      zone: us-south-1
-      cidr: 172.16.0.0/18
-    -
-      name: address-prefix-zone-2-name
-      zone: us-south-2
-      cidr: 172.16.64.0/18
-    -
-      name: address-prefix-zone-3-name
-      zone: us-south-3
-      cidr: 172.16.128.0/18
-```
-After you have defined the VPC, you must define the subnets required within each availability zone of the multi-zone region.  Subnet's are defined with CIDR block notation, and must be allocated out of the CIDR block defined previously for each availability zone.   Subnets can not overlap eachother.   Multiple subnets can be defined per zone.  If egress traffic will be allowed to the public Internet specify  PublicGateway: true parameter.   A network_acl can be specified.   If it does not already exist, one can be created in the network_acls section of the YAML file.
-```
- zones:
-    -
-      name: us-south-1
-      subnets:
-        -
-          name: subnet-name
-          ipv4_cidr_block: 172.16.0.0/24
-          network_acl: network-acl
-          publicGateway: true
-```
+## VPC Architecture
+Below is the IBM Virtual Private Cloud (VPC) architecture of the solution showing public isolation for both Application (through a Load Balancer) and data.
 
-To identify the available regions, you need the Infrastructure Services plugin for the IBMCLOUD CLi.   More information can be found about installing the CLI and plugins at: [https://console.bluemix.net/docs/cli/index.html#overview](https://console.bluemix.net/docs/cli/index.html#overview)
-```
-ibmcloud login --sso
-ibmcloud is regions
-```
-To identify the available zones within a region.
-```
-ibmcloud login --sso
-ibmcloud is regions region_name
-```
-Within each subnet instances can be provisioned.  To faciliate consistent provisioning of virtual instances a template must first be defined for each server type you wish to provision.   Within each template you will define the base OS image id to use, the ssh key ID to use, and the type of virtual server profile to use.   Last within each template you can specify a cloud-init post installation script to be deployed.  The cloud-init file must begin with a #cloud-config and will be properly encoded and passed via the user_data parameter during the provisioning process and executed during the provisioning process.
+### Infrastructure Architecture
+![3tier Web App - Infrastructure](/Test001_TF_n-tier_multizone/docs/images/infrastructure-architecture.png)
 
-```
-  instanceTemplates:
-    -
-      template: web_server
-      image: ubuntu-16.04-amd64
-      profile_name: c-2x4
-      sshkey: my-ssh-key 
-      cloud-init-file: cloud-init.txt
-```
-The instanceTemplates will be used during provisioning and sets the values used for each of the instances requested.
+### Application Architecture
+![3tuer Web App - Application](docs/images/application-data-flow.png)
 
-Profile_name must be a valid profile_name.   Profiles represent the memory and cpu resources of the virtual machine. 
-To identify available profiles in each region:
+#### *Not depicted in drawings*
 
-```
-ibmcloud is instance-profiles
-```
-Image must be a valid image name.  To determine the images available to use for provisioning.  
-```
-ibmcloud is images
-```
-The sshkey must be a valid sshkey defined in the account.  To list the ssh_key's in your region
-```
-ibmcloud is keys
-```
-# SSH Keys
-You may define multiple SSH keys to be created by adding the following section to the YAML file.  You can then reference these keys in the instanceTemplates section.
-```
-   sshkeys:
-      -
-        sshkey: my-ssh-key
-        public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
-```
-# Security Groups
-Security Groups define the egress and ingress traffic from each virtual server instance.   Security Groups can be defined in the security_groups section of the YAML file and are referenced during creation of instances.   Multiple inbound and outbound rules can be defined.   Security group rules can reference CIDR Blocks, Single IP addresses, or other Security Groups.   Security groups are generally fine grained and control traffic flow between and accross tiers of an application topology.
+- Cloud Internet Services (GLB function or DNS)
+- Management Flows
 
-```
-  security_groups:
-    -
-      security_group: ecommerce-vpc-apptier2
-      rules:
-        -
-          direction: inbound
-          ip_version: ipv4
-          protocol: all
-          remote:
-            cidr_block: 172.16.16.0/24
-         -
-          direction: inbound
-          ip_version: ipv4
-          protocol: all
-          remote:
-            cidr_block: 172.16.80.0/24
-        -
-          direction: inbound
-          ip_version: ipv4
-          protocol: all
-          remote:
-            cidr_block: 172.16.144.0/24
-        -
-          direction: inbound
-          ip_version: ipv4
-          port_min: 8090
-          port_max: 8091
-          protocol: tcp
-          remote:
-            security_group: ecommerce-vpc-webtier
-        -
-          direction: outbound
-          ip_version: ipv4
-          protocol: all
-          remote:
-            cidr_block: 0.0.0.0/0
-```
-Within the zone and subnet section of the YAML file you define the actual virtual server instances to be provisioned in that subnet.   You specify a name template, the quantity required, the server template previously defined which will be used to provision the server, and the security group to attach to the network interface.  
-```
-    instances:
-      -
-        name: web%02d-zone1.mydomain.com
-        quantity: 4
-        template: web_server
-        floating_ip: true
-        security_group: jonhall-vpctest01-webtier
-        in_lb_pool:
-          -
-            lb_name: ecommerce-vpc-webtier-lb01
-            lb_pool: nginx-http
-            listen_port: 80
-```
-The instance name of each virtual server provisioned will be derived from the text provided in the "name" parameter.   Use %02d to represent a sequetial numeric number which will be generated sequentially during provisioning.
+## Assumptions and Limitations
 
-If the instances will need to be added to a load balancer pool use the "in_lib_pool" and specify the lb_name and lb_pool for the desired load balancer the instances will be added behind.  Additionally specify the port for which the application will run on using the listen_port paramter.  You may specify multiple Load Balancers and pools per instance.
+- At time of testing it is assumed several key as-a-service capabilities are not available (ACL, LBaaS, VPNaaS)
+- The solution will implement HTTP only for simplicity.
+- A MySQL database server was implemented on Infrastructure versus as-a-service to illustrate both the ability to define logical tiers between subnets as well
+as to show the ability to automate deployment and configuration tasks.
+- Cloud-init is used for post-provisioning installation of required packages.  Bring-Your-Own-Image (BYOI) is not supported at time of testing.
+- Ansible is used for all post configuration tasks.
 
-Multiple instance types can be configured in each subnet.
+## Changes made to accommodate missing capabilities
 
-If the load balancers do not already exist within the VPC, the load balancer configuration should be specified in the load_balancers section of the YAML file and it will be created.
+- Python Scripts adapted for generation=2
+- All non supported capabilities (LBaaS, VPNaaS, and ACLs) not configured
+- Added floating IP's to compensate for lack of VPNaaS
+- Added SSH security group rules for public Mgmt IP to compensate for lack of VPNaaS
 
-Specify the Load Balancer characteristics, location of load balancer nodes, listeners, pools and health-monitors can be defined for multiple public and private load balancers.    Pool members are determined by the specifications within the instance section of each subnet.
 
-```
-load_balancers:
-      lbInstance: ecommerce-vpc-apptier-lb01
-      is_public: false
-      subnets:
-        - app-tier-us-south-1
-        - app-tier-us-south-2
-      listeners:
-        -
-          protocol: http
-          port: 8090
-          connection_limit: 100
-          default_pool_name: index_php_upstream
-      pools:
-        - name: index_php_upstream
-          protocol: http
-          algorithm: least_connections
-          health_monitor:
-            type: http
-            delay: 5
-            max_retries: 2
-            timeout: 2
-            url_path: /
 
-```
+## VPC Functional Coverage
+| Function  | Demonstrated | Notes |
+| --------  | ------------ | ----- |
+| REST API  |   :white_check_mark:    | generation=2 passed | 
+| Ansible Dynamic Inventory | :white_check_mark: | Dynamic Inventory pulls invetory via REST API |
+| VPC |  :white_check_mark: | VPC created by API|
+| Resource Groups | :white_check_mark: | Assigned, but assumed to be created already. |
+| Access Groups | :white_check_mark: | Inherited, but assumed to already be created |
+| Subnets | :white_check_mark: | Subnets created succesfully 2 per zone for total of 4|
+| Private (RFC1918) IP (BYOIP) | :white_check_mark: | Address prefixes created correctly and assigned to subnets.|
+| ACLs | :x: | Not available in NG |
+| Security Groups | :white_check_mark:| SG's created correctly and assigned to interfaces|
+| Virtual Server Instance (VSI) | :white_check_mark: | Instances created succesfully, though found differences in OS images from VPC Classic |
+| Multiple Network Interfaces in VSI | :white_check_mark: | Only primary interface tested |
+| Secondary volumes | :white_check_mark: | provisioned and assigned succesfully |
+| Load Balancer as a Service | :x: | Not Available, used CIS GLB + NGINX |
+| Floating IPv4 | :white_check_mark:| Assigned floating IP's to all instances |
+| Public Gateway | :white_check_mark: | Public Gateway allocated and assigned to subnets in each zone |
+| Storage BYOI support (both boot and secondary) | :x: |Base OS image with Cloud-Init instead of BYOI |
+| Cloud-Init | :white_check_mark: | Found differences with base OS images from VPC classic |
+| VPNaaS | :x: | Not available |
+| Cloud Internet Services (CIS) | :white_check_mark: | GLB two origins, one for each zone with NGINX destinations for each web server|
+| IBM Cloud Monitoring with Sysdig | :white_check_mark: | Tested using public end point |
+| IBM Cloud Log Analysis with LogDNA | :white_check_mark:| Tested using public end point |
+### System Requirements
 
-### Execute Script
-Once the YAML configuraiton file is complete you must first authenticate with the IBM Cloud by using Identity and Access Management (IAM).  This script requires that you first request a bearer token and store it in a file called iam_token.   This token is used in an Authorization header for the REST API calls, and is only valid for one hour.  To request the token follow the following steps
-```
-ibmcloud login --sso
-iam_token=$(ibmcloud iam oauth-tokens | awk '/IAM/{ print $3 " " $4; }')
-echo $iam_token > iam_token
-```
-Alternatively you can run the provide script and the following command will request the token and generate the file:
-```
-./gettoken
-```
-Once complete execute the Python code to build the specified VPC and required application topology.   If elements of the VPC already exist, the script will identify the state and move to the next element.   By default the script reads the topology.yaml file, but you can specify a different topology file by using --yaml filename.
+#### Operating system
 
-```
-./provision-vpc.py [--yaml filename]
-```
+| Tier  | Operating system |
+| ------------- | ------------- |
+| Web Server & Application | Ubuntu 16.04  |
+| Data  | Ubuntu 16.04  |
 
-To destroy the VPC created, and systematically delete all objects in the YAML file run: 
-```
-./destroy-vpc.py [--yaml filename]
-```
+#### Hardware
 
-## Known Limitations  
-- Only one VPC can be defined in YAML file
-- Only parameters shown in YAML file are currently supported
-- If objects already exist, script will not recreate the object and therefore does not evaluate if changes exist.   You must manually delete prior to execution of script if you want the changes to be implemented.
+| Tier | Type | Profile | Secondary |
+| ------------- | ------------- | ------- |
+| Web Server and Application  |  VSI |c2-2x4 |  100GB general IOPS |
+| Database | VSI  | b2-16x64 | 500GB 10iops-tier |
+
+
+## Documented Steps
+
+### Prerequisites
+
+The following software needs to be installed:
+1. Terraform 0.11 or greater
+2. [IBM Cloud Terraform Provider version 0.17.1](https://github.com/IBM-Cloud/terraform-provider-ibm) 
+2. Ansible 2.8
+
+The following must be configured prior to running Terraform / Ansible
+1. A Public SSH key as described in [SSH Keys](https://cloud.ibm.com/docs/vpc-on-classic-vsi?topic=vpc-on-classic-vsi-ssh-keys#ssh-keys).
+2. A resource group called `wordpress-demo` as described in [Managing resource groups](https://cloud.ibm.com/docs/resources?topic=resources-rgs#rgs)
+3. User permissions and the required access as described in [Managing user permissions for VPC resources](https://cloud.ibm.com/docs/vpc-on-classic?topic=vpc-on-classic-managing-user-permissions-for-vpc-resources)
+
+### Deploy VPC Infrastructure using Terraform & Ansible
+
+1. [Deploy Infrastructure using Terraform](docs/terraform.md)
+2. [Establish site-to-site VPN](docs/vpn.md)
+3. [Configure Application Layer using Ansible](docs/ansible.md)
+

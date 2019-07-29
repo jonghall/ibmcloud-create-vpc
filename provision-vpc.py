@@ -1092,7 +1092,6 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
                  "name": instance_name,
                  "vpc": {"id": vpc_id},
                  "image": {"id": image_id},
-                 "user_data": user_data,
                  "profile": {"name": profile_name},
                  "keys": [{"id": sshkey_id}],
                  "primary_network_interface": {
@@ -1107,11 +1106,10 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
                          "profile": {"name": "general-purpose"}
                      },
                      "delete_volume_on_instance_delete": True
-                 }
+                 },
+                 "user_data": user_data
                  }
 
-        if bandwidth != None:
-            parms["bandwidth"] = bandwidth
 
         try:
             resp = requests.post(iaas_endpoint + '/v1/instances' + version, json=parms, headers=headers, timeout=30)
@@ -1127,6 +1125,7 @@ def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, ssh
                 print("Invalid instance template provided.")
                 print("template: %s" % parms)
                 print("Error Data:  %s" % errb)
+                print("error detail: %s" %  resp.text)
                 quit()
             else:
                 print(json.dumps(parms, indent=4))
