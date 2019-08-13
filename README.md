@@ -12,8 +12,8 @@ A typical Ecommerce web app deployed accross 3 zones consisting of 3 segmented n
 The topology is configured using standard YAML format
 
 The first step is to define within the yaml file the VPC name, region location, and characteristics of the vpc.  For VPC classic
-generation: 1 should be specified.   For VPC, generation: 2 should be specified.   For generation: 2, some VPC features are not available
-during early access and will be ignored (not created.)
+generation: 1 should be specified.   For VPC, generation: 2 should be specified.   For generation: 2, classic_access is not supported
+and some VPC features are not available during early access and will be ignored (not created.)
 
 ```
   vpc: vpcname
@@ -21,89 +21,111 @@ during early access and will be ignored (not created.)
   classic_access: false
   resource_group: default
   default_network_acl: vpc-acl
-  generation: 1
+  generation: < 1 | 2 > 
 ```
-Referenced by the VPC is the default network ACL to use.   You can specify one that exists already, or define one within the YAML file.  The default network ACL is used as the default for all subnets created later and controls both ingress and egress traffic out of the subnets.   
+
+Referenced by the VPC is the default network ACL to use (generation=1 only).   You can specify one that exists already, 
+or define one within the YAML file.  The default network ACL is used as the default for all subnets created later and
+controls both ingress and egress traffic out of the subnets.   
 
 ```
-    network_acls:
-      - network_acl: ecommerce-vpc-default-acl
-        rules:
-          - name: allow-all-in
-            direction: inbound
-            action: allow
-            source: 0.0.0.0/0
-            destination: 0.0.0.0/0
-          - name: allow-all-out
-            direction: outbound
-            action: allow
-            source: 0.0.0.0/0
-            destination: 0.0.0.0/0
+network_acls:
+  - network_acl: ecommerce-vpc-default-acl
+    rules:
+      - name: allow-all-in
+        direction: inbound
+        action: allow
+        source: 0.0.0.0/0
+        destination: 0.0.0.0/0
+      - name: allow-all-out
+        direction: outbound
+        action: allow
+        source: 0.0.0.0/0
+        destination: 0.0.0.0/0
 ```
 Next, if you prefer to use a different address prefix for your VPC you can define your IP CDIR block for each of the availability zones within the VPC created.   In the example below a netmask of /18 is used to define the IP Address space for each of the availability zones in the US South region. 
 
 ```
-  address_prefix:
-    -
-      name: address-prefix-zone-1-nane
-      zone: us-south-1
-      cidr: 172.16.0.0/18
-    -
-      name: address-prefix-zone-2-name
-      zone: us-south-2
-      cidr: 172.16.64.0/18
-    -
-      name: address-prefix-zone-3-name
-      zone: us-south-3
-      cidr: 172.16.128.0/18
+address_prefix:
+-
+  name: address-prefix-zone-1-nane
+  zone: us-south-1
+  cidr: 172.16.0.0/18
+-
+  name: address-prefix-zone-2-name
+  zone: us-south-2
+  cidr: 172.16.64.0/18
+-
+  name: address-prefix-zone-3-name
+  zone: us-south-3
+  cidr: 172.16.128.0/18
 ```
-After you have defined the VPC, you must define the subnets required within each availability zone of the multi-zone region.  Subnet's are defined with CIDR block notation, and must be allocated out of the CIDR block defined previously for each availability zone.   Subnets can not overlap eachother.   Multiple subnets can be defined per zone.  If egress traffic will be allowed to the public Internet specify  PublicGateway: true parameter.   A network_acl can be specified.   If it does not already exist, one can be created in the network_acls section of the YAML file.
+
+After you have defined the VPC, you must define the subnets required within each availability zone of the multi-zone region.
+Subnet's are defined with CIDR block notation, and must be allocated out of the CIDR block defined previously for each
+availability zone.   Subnets can not overlap eachother.   Multiple subnets can be defined per zone.  If egress traffic
+will be allowed to the public Internet specify  PublicGateway: true parameter.   A network_acl can be specified.   If it
+does not already exist, one can be created in the network_acls section of the YAML file.
 ```
- zones:
+zones:
+-
+  name: us-south-1
+  subnets:
     -
-      name: us-south-1
-      subnets:
-        -
-          name: subnet-name
-          ipv4_cidr_block: 172.16.0.0/24
-          network_acl: network-acl
-          publicGateway: true
+      name: subnet-name
+      ipv4_cidr_block: 172.16.0.0/24
+      network_acl: network-acl
+      publicGateway: true
 ```
 
 To identify the available regions, you need the Infrastructure Services plugin for the IBMCLOUD CLi.   More information can be found about installing the CLI and plugins at: [https://console.bluemix.net/docs/cli/index.html#overview](https://console.bluemix.net/docs/cli/index.html#overview)
 ```
 ibmcloud login --sso
+ibmcloud is target --gen = <1|2>
 ibmcloud is regions
+
 ```
 To identify the available zones within a region.
 ```
 ibmcloud login --sso
-ibmcloud is regions region_name
+ibmcloud is target --gen = <1|2>
+ibmcloud is zones region_name
 ```
-Within each subnet instances can be provisioned.  To faciliate consistent provisioning of virtual instances a template must first be defined for each server type you wish to provision.   Within each template you will define the base OS image id to use, the ssh key ID to use, and the type of virtual server profile to use.   Last within each template you can specify a cloud-init post installation script to be deployed.  The cloud-init file must begin with a #cloud-config and will be properly encoded and passed via the user_data parameter during the provisioning process and executed during the provisioning process.
+Within each subnet instances can be provisioned.  To faciliate consistent provisioning of virtual instances
+a template must first be defined for each server type you wish to provision.   Within each template you will define the
+base OS image id to use, the ssh key ID to use, and the type of virtual server profile to use.   Last within each template
+you can specify a cloud-init post installation script to be deployed.  The cloud-init file must begin with a #cloud-config
+and will be properly encoded and passed via the user_data parameter during the provisioning process and executed during
+the provisioning process.
 
 ```
-  instanceTemplates:
-    -
-      template: web_server
-      image: ubuntu-16.04-amd64
-      profile_name: c-2x4
-      sshkey: my-ssh-key 
-      cloud-init-file: cloud-init.txt
-      volumes:
-        - capacity: 500
-          profile: 10iops-tier
-          delete_volume_on_instance_delete: true
+instanceTemplates:
+-
+  template: web_server
+  image: ubuntu-16.04-amd64
+  profile_name: c-2x4
+  sshkey: my-ssh-key 
+  cloud-init-file: cloud-init.txt
+  volumes:
+    - capacity: 500
+      profile: 10iops-tier
+      delete_volume_on_instance_delete: true
 
 ```
 The instanceTemplates will be used during provisioning and sets the values used for each of the instances requested.
-If secondary volumes are required they should be specified in the template.
+If secondary volumes are required they should be specified in the template.  This version of provision-vpc.py only
+supports provider provided encryption at this time.
 
-Profile_name must be a valid profile_name.   Profiles represent the memory and cpu resources of the virtual machine. 
-To identify available profiles in each region:
+Profile_name must be a valid profile_name for the generation and region used.   Profiles represent the memory and cpu resources
+of the virtual machine.  During early availability of generation=2 only us-south will be available.
+ 
+to identify available profiles in each region:
 
 ```
-ibmcloud is instance-profiles
+ibmcloud is target --gen = <1|2>
+ibmcloud is regions
+ibmcloud target -r  < eu-gb | au-syd | jp-tok | eu-du | us-south >  
+iibmcloud is instance-profiles
 ```
 Image must be a valid image name.  To determine the images available to use for provisioning.  
 ```
@@ -121,7 +143,6 @@ You may define multiple SSH keys to be created by adding the following section t
         sshkey: my-ssh-key
         public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
 ```
-
 
 # Security Groups
 Security Groups define the egress and ingress traffic from each virtual server instance.   Security Groups can be defined in the security_groups section of the YAML file and are referenced during creation of instances.   Multiple inbound and outbound rules can be defined.   Security group rules can reference CIDR Blocks, Single IP addresses, or other Security Groups.   Security groups are generally fine grained and control traffic flow between and accross tiers of an application topology.
