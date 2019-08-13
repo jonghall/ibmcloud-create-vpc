@@ -134,7 +134,6 @@ def main(region, generation, topology):
                                                      subnet_id,
                                                      security_group,
                                                      user_data,
-                                                     bandwidth,
                                                      volumes)
                         # IF floating_ip = True assign
                         if 'floating_ip' in instance:
@@ -1078,7 +1077,7 @@ def getinstanceid(instance_name, subnetid):
     return instanceid
 
 def createinstance(zone_name, instance_name, vpc_id, image_id, profile_name, sshkey_id, subnet_id, security_group,
-                   user_data, bandwidth, volumes):
+                   user_data, volumes):
 
     ##############################################
     # create new instance in desired vpc and zone
@@ -1487,7 +1486,7 @@ def getresourcegroupid(resource_group):
             resource_id = resource[0]["id"]
             return resource_id
         else:
-            return 0
+            return None
     else:
         unknownapierror(resp)
     return resource_id
@@ -1603,7 +1602,7 @@ def unknownapierror(resp):
 
 iaas_endpoint = "https://us-south.iaas.cloud.ibm.com"
 resource_controller_endpoint = "https://resource-controller.cloud.ibm.com"
-version = "?version=2019-06-04"
+version = "?version=2019-05-31"
 
 
 #####################################
