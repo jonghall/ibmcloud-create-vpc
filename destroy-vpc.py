@@ -3,7 +3,7 @@
 ## Author: Jon Hall
 ##
 
-import requests, json, time, yaml, argparse
+import requests, json, time, sys, yaml, os, argparse, configparser, urllib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -163,7 +163,7 @@ def getregionavailability(region):
     # Get Region Availability
     #############################
 
-    resp = requests.get(rias_endpoint + '/v1/regions/' + region + version, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/regions/' + region + version, headers=headers)
 
     if resp.status_code == 200:
         region = json.loads(resp.content)
@@ -186,7 +186,7 @@ def getnetworkaclid(network_acl_name):
     ## Lookup network acl id by name
     ################################################
 
-    resp = requests.get(rias_endpoint + '/v1/network_acls/' + version, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/network_acls/' + version, headers=headers)
     if resp.status_code == 200:
         acls = json.loads(resp.content)["network_acls"]
         default_network_acl = \
@@ -207,7 +207,7 @@ def getsecuritygroupid(security_group, vpc_id):
     ## Lookup security group id by name
     ################################################
 
-    resp = requests.get(rias_endpoint + '/v1/security_groups/' + version + "&vpc.if=" + vpc_id, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/security_groups/' + version + "&vpc.if=" + vpc_id, headers=headers)
     if resp.status_code == 200:
         sgs = json.loads(resp.content)["security_groups"]
         default_security_group = \
@@ -233,7 +233,7 @@ def deletenetworkacls(network_acl_name):
     if network_acl_id is not None:
         # Delete network ACL
 
-        resp = requests.delete(rias_endpoint + '/v1/network_acls/' + network_acl_id + version, headers=headers)
+        resp = requests.delete(iaas_endpoint + '/v1/network_acls/' + network_acl_id + version, headers=headers)
 
         if resp.status_code == 204:
             print("Network ACL %s deleted successfully." % (network_acl_name))
@@ -264,7 +264,7 @@ def deletesecuritygroup(security_group, vpc_id):
     if security_group_id is not None:
         # Delete Security Group
 
-        resp = requests.delete(rias_endpoint + '/v1/security_groups/' + security_group_id + version, headers=headers)
+        resp = requests.delete(iaas_endpoint + '/v1/security_groups/' + security_group_id + version, headers=headers)
 
         if resp.status_code == 204:
             print("Security Group %s deleted successfully." % (security_group))
@@ -288,7 +288,7 @@ def deletesecuritygroup(security_group, vpc_id):
 
 def getpublicgatewayid(name, vpc_id):
     # A gateway is needed check if Public Gateway already exists in zone, if not create.
-    resp = requests.get(rias_endpoint + '/v1/public_gateways' + version, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/public_gateways' + version, headers=headers)
     if resp.status_code == 200:
         public_gateways = json.loads(resp.content)["public_gateways"]
         # Determine if gateway exists and use it.  First get Gateways for this VPC
@@ -313,7 +313,7 @@ def deletepublicgateway(zone_name, vpc_name, vpc_id):
 
     if public_gateway_id is not None:
         # gateway already exists, delete it
-        resp = requests.delete(rias_endpoint + '/v1/public_gateways/' + public_gateway_id + version,
+        resp = requests.delete(iaas_endpoint + '/v1/public_gateways/' + public_gateway_id + version,
                                headers=headers)
 
         if resp.status_code == 204:
@@ -345,11 +345,11 @@ def detachpublicgateway(subnet_name):
     subnet_id = getsubnetid(subnet_name)
 
     if subnet_id != None:
-        resp = requests.get(rias_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers)
+        resp = requests.get(iaas_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers)
         if resp.status_code == 200:
             subnet = json.loads(resp.content)
             if "public_gateway" in subnet:
-                resp = requests.delete(rias_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version,
+                resp = requests.delete(iaas_endpoint + '/v1/subnets/' + subnet_id + '/public_gateway' + version,
                                        headers=headers)
                 if resp.status_code == 204:
                     print("Public gateway detached successfully from subnet %s." % subnet_name)
@@ -374,7 +374,7 @@ def detachpublicgateway(subnet_name):
 
 
 def getvpcid(vpc_name):
-    resp = requests.get(rias_endpoint + '/v1/vpcs/' + version, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/vpcs/' + version, headers=headers)
     if resp.status_code == 200:
         vpcs = json.loads(resp.content)["vpcs"]
         # Determine if network_acl name already exists and retreive id.
@@ -390,7 +390,7 @@ def deletevpc(vpc_id, vpc_name, region):
     # Delete VPC in desired region
     ##################################
 
-    resp = requests.delete(rias_endpoint + '/v1/vpcs/' + vpc_id + version, headers=headers)
+    resp = requests.delete(iaas_endpoint + '/v1/vpcs/' + vpc_id + version, headers=headers)
 
     if resp.status_code == 204:
         print("Deleted VPC named %s (%s) in region %s." % (vpc_name, vpc_id, region))
@@ -415,7 +415,7 @@ def deletevpc(vpc_id, vpc_name, region):
 
 def getaddressprefixid(vpc_id, name):
     # get list of prefixes in VPC to check if prefix already exists
-    resp = requests.get(rias_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes' + version, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes' + version, headers=headers)
     if resp.status_code == 200:
         prefixlist = json.loads(resp.content)["address_prefixes"]
         prefix_id = list(filter(lambda p: p['name'] == name, prefixlist))
@@ -433,7 +433,7 @@ def deleteaddressprefix(vpc_id, name, zone):
     addressprefix_id = getaddressprefixid(vpc_id, name)
 
     if addressprefix_id is not None:
-        resp = requests.delete(rias_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes/' + addressprefix_id + version,
+        resp = requests.delete(iaas_endpoint + '/v1/vpcs/' + vpc_id + '/address_prefixes/' + addressprefix_id + version,
                                headers=headers)
 
         if resp.status_code == 204:
@@ -460,7 +460,7 @@ def getsubnetid(subnet_name):
     ################################################
 
     # get list of subnets in region to find id
-    resp = requests.get(rias_endpoint + '/v1/subnets/' + version, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/subnets/' + version, headers=headers)
     if resp.status_code == 200:
         subnetlist = json.loads(resp.content)["subnets"]
         subnet_id = list(filter(lambda s: s['name'] == subnet_name, subnetlist))
@@ -478,7 +478,7 @@ def deletesubnet(subnet_name):
     subnet_id = getsubnetid(subnet_name)
 
     if subnet_id != None:
-        resp = requests.delete(rias_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers)
+        resp = requests.delete(iaas_endpoint + '/v1/subnets/' + subnet_id + version, headers=headers)
 
         if resp.status_code == 204:
             print("Subnet named %s deleted." % (subnet_name))
@@ -509,7 +509,7 @@ def detachfloatingip(instance_name, subnet_name):
     if instance_id is not None:
         # get network interfaces
         resp = requests.get(
-            rias_endpoint + '/v1/instances/' + instance_id + "/network_interfaces" + version,
+            iaas_endpoint + '/v1/instances/' + instance_id + "/network_interfaces" + version,
             headers=headers)
 
         if resp.status_code == 200:
@@ -519,7 +519,7 @@ def detachfloatingip(instance_name, subnet_name):
                 for network_interface in network_interfaces:
                     # for each network interface get floating ips
                     resp = requests.get(
-                        rias_endpoint + '/v1/instances/' + instance_id + "/network_interfaces/" + network_interface[
+                        iaas_endpoint + '/v1/instances/' + instance_id + "/network_interfaces/" + network_interface[
                             "id"] + "/floating_ips" + version,
                         headers=headers)
 
@@ -530,7 +530,7 @@ def detachfloatingip(instance_name, subnet_name):
                             for floating_ip in floating_ips:
                                 # For each floating Ip detach it.
                                 resp = requests.delete(
-                                    rias_endpoint + '/v1/instances/' + instance_id + "/network_interfaces/" +
+                                    iaas_endpoint + '/v1/instances/' + instance_id + "/network_interfaces/" +
                                     network_interface["id"] + "/" + "floating_ips/" + floating_ip["id"] + version,
                                     headers=headers)
 
@@ -562,7 +562,7 @@ def releasefloatingip(id):
     ################################################
 
     while True:
-        resp = requests.get(rias_endpoint + '/v1/floating_ips/' + id + version, headers=headers)
+        resp = requests.get(iaas_endpoint + '/v1/floating_ips/' + id + version, headers=headers)
         if resp.status_code == 200:
             if "status" in json.loads(resp.content):
                 status = json.loads(resp.content)["status"]
@@ -572,7 +572,7 @@ def releasefloatingip(id):
                     print("Waiting for floating ip %s to detach.  Sleeping 10 seconds." % id)
                     time.sleep(10)
 
-    resp = requests.delete(rias_endpoint + '/v1/floating_ips/' + id + version, headers=headers)
+    resp = requests.delete(iaas_endpoint + '/v1/floating_ips/' + id + version, headers=headers)
 
     if resp.status_code == 204:
         print("Floating IP %s deleted." % (id))
@@ -597,7 +597,7 @@ def getinstanceid(instance_name, subnet_name):
     ##############################################
 
     # get list of instances to check if instance already exists
-    resp = requests.get(rias_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.name=" + subnet_name,
+    resp = requests.get(iaas_endpoint + '/v1/instances/' + version + "&network_interfaces.subnet.name=" + subnet_name,
                         headers=headers)
     if resp.status_code == 200:
         instancelist = json.loads(resp.content)["instances"]
@@ -616,12 +616,13 @@ def stopinstance(instance_id):
     if instance_id != None:
 
         parms = {"type": "stop"}
-        resp = requests.post(rias_endpoint + '/v1/instances/' + instance_id + '/actions'+ version, json=parms, headers=headers)
+        resp = requests.post(iaas_endpoint + '/v1/instances/' + instance_id + '/actions' + version, json=parms,
+                             headers=headers)
 
         if resp.status_code == 201:
             print("Requested instance %s to be stopped successfully." % (instance_id))
             while True:
-                resp = requests.get(rias_endpoint + '/v1/instances/' + instance_id + version, headers=headers);
+                resp = requests.get(iaas_endpoint + '/v1/instances/' + instance_id + version, headers=headers);
                 if resp.status_code == 404:
 
                     break;
@@ -652,7 +653,7 @@ def getvpnid(vpn_name):
     ## LLookup VPN by name
     ################################################
 
-    resp = requests.get(rias_endpoint + '/v1/vpn_gateways' + version, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/vpn_gateways' + version, headers=headers)
     if resp.status_code == 200:
         vpn_gateways = json.loads(resp.content)["vpn_gateways"]
         vpn_gateway = \
@@ -674,7 +675,7 @@ def deletevpn(vpn_id, vpn_name):
     ##############################################
 
     if vpn_id != None:
-        resp = requests.delete(rias_endpoint + '/v1/vpn_gateways/' + vpn_id + version, headers=headers)
+        resp = requests.delete(iaas_endpoint + '/v1/vpn_gateways/' + vpn_id + version, headers=headers)
 
         if resp.status_code == 204:
             print("vpn %s (%s) deleted successfully." % (vpn_name, vpn_id))
@@ -706,7 +707,7 @@ def deleteinstance(instance_name, subnet_name):
 
     if instance_id != None:
         stopinstance(instance_id)
-        resp = requests.delete(rias_endpoint + '/v1/instances/' + instance_id + version, headers=headers)
+        resp = requests.delete(iaas_endpoint + '/v1/instances/' + instance_id + version, headers=headers)
 
         if resp.status_code == 204:
             print("Instance %s (%s) deleted successfully." % (instance_name, instance_id))
@@ -740,7 +741,7 @@ def getloadbalancerid(lbname):
     ################################################
 
     # get list of load balancers and return information
-    resp = requests.get(rias_endpoint + '/v1/load_balancers/' + version,
+    resp = requests.get(iaas_endpoint + '/v1/load_balancers/' + version,
                         headers=headers)
     if resp.status_code == 200:
         lblist = json.loads(resp.content)["load_balancers"]
@@ -768,7 +769,7 @@ def deleteloadbalancer(lb):
 
     if lb_id is not None:
 
-        resp = requests.delete(rias_endpoint + '/v1/load_balancers/' + lb_id + version, headers=headers)
+        resp = requests.delete(iaas_endpoint + '/v1/load_balancers/' + lb_id + version, headers=headers)
 
         if resp.status_code == 204:
             print("Deleted %s (%s) load balancer successfully." % (lb["lbInstance"], lb_id))
@@ -798,7 +799,7 @@ def getsshkeyid(sshkey_name):
     ## Return the sshkey_id of an sshkey name
     ################################################
 
-    resp = requests.get(rias_endpoint + '/v1/keys/' + version, headers=headers)
+    resp = requests.get(iaas_endpoint + '/v1/keys/' + version, headers=headers)
     if resp.status_code == 200:
         keylist = json.loads(resp.content)["keys"]
         sshkey_id = list(filter(lambda k: k['name'] == sshkey_name, keylist))
@@ -816,7 +817,7 @@ def deletesshkey(sshkey_name):
 
     if sshkey_id is not None:
 
-        resp = requests.delete(rias_endpoint + '/v1/keys/' + sshkey_id + version, headers=headers)
+        resp = requests.delete(iaas_endpoint + '/v1/keys/' + sshkey_id + version, headers=headers)
 
         if resp.status_code == 204:
             print("SSH Key named %s deleted." % (sshkey_name))
