@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
-def main(region):
+def main(region, generation, topology):
     #######################################################################
     # Work backwards to remove objects
     #######################################################################
@@ -22,10 +22,12 @@ def main(region):
         #######################################################################
         # Delete load balancers
         #######################################################################
-        print("- Deleting Load Balancers -")
-        if "load_balancers" in topology:
-            for lb in topology["load_balancers"]:
-                deleteloadbalancer(lb)
+
+        if generation == 1:
+            print("- Deleting Load Balancers -")
+            if "load_balancers" in topology:
+                for lb in topology["load_balancers"]:
+                    deleteloadbalancer(lb)
 
         #######################################################################
         # Detach Floating IPs & gateways & delete instance
@@ -39,7 +41,7 @@ def main(region):
                 if subnet["publicGateway"]:
                     detachpublicgateway(subnet["name"])
 
-                if "vpn" in subnet:
+                if "vpn" in subnet and generation == 1:
                     ## delete VPN
                     for vpn in subnet["vpn"]:
                         # delete each vpn instance
@@ -64,13 +66,10 @@ def main(region):
                 # now that instances are deleted delete subnet
                 deletesubnet(subnet["name"])
             deletepublicgateway(zone["name"], vpc_name, vpc_id)
+            if "address_prefix_cidr" in zone:
+                name = zone["name"] + "-address-prefix"
+                deleteaddressprefix(vpc_id, name, zone["name"])
 
-        #######################################################################
-        # Delete Address Prefixes - assume not default
-        #######################################################################
-        print("- Deleting Address Prefixes from VPC -")
-        for addressprefix in topology["address_prefix"]:
-            deleteaddressprefix(vpc_id, addressprefix["name"], addressprefix['zone'])
 
         #######################################################################
         # Delete Security Groups
@@ -88,9 +87,10 @@ def main(region):
     #######################################################################
     # Delete Network ACLS
     #######################################################################
-    print("- Deleting Network Acls -")
-    for network_acl in topology["network_acls"]:
-        deletenetworkacls(network_acl["network_acl"])
+    if generation == 1:
+        print("- Deleting Network Acls -")
+        for network_acl in topology["network_acls"]:
+            deletenetworkacls(network_acl["network_acl"])
 
     #######################################################################
     # Delete Keys
@@ -100,6 +100,63 @@ def main(region):
         deletesshkey(sshkey["sshkey"])
     return
 
+
+def parse_apiconfig(ini_file):
+    ################################################
+    ## Get APIKey from ini file
+    ################################################
+
+    dirpath = os.getcwd()
+    config = configparser.ConfigParser()
+
+    try:
+        # attempt to open ini file to read apikey. Only proceed if found
+        filepath = dirpath + "/" + ini_file
+        open(filepath)
+
+    except FileNotFoundError:
+        raise Exception("Unable to find or open specified ini file.")
+        quit()
+    else:
+        config.read(filepath)
+
+    apikey = config["API"]["apikey"]
+
+    return apikey
+
+
+def getiamtoken(apikey):
+    ################################################
+    ## Get Bearer Token using apikey
+    ################################################
+
+    headers = {"Content-Type": "application/x-www-form-urlencoded",
+               "Accept": "application/json"}
+
+    parms = {"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": apikey}
+
+    try:
+        resp = requests.post("https://iam.cloud.ibm.com/identity/token?" + urllib.parse.urlencode(parms),
+                             headers=headers, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError as errc:
+        print("Error Connecting:", errc)
+        quit()
+    except requests.exceptions.Timeout as errt:
+        print("Timeout Error:", errt)
+        quit()
+    except requests.exceptions.HTTPError as errb:
+        print("Invalid token request.")
+        print("template=%s" % parms)
+        print("Error Data:  %s" % errb)
+        print("Other Data:  %s" % resp.text)
+        quit()
+
+    iam = resp.json()
+
+    iamtoken = {"Authorization": "Bearer " + iam["access_token"]}
+
+    return iamtoken
 
 def getregionavailability(region):
     #############################
@@ -787,46 +844,55 @@ def deletesshkey(sshkey_name):
 # Set Global Variables
 #####################################
 
-
-# Create iam_token file by running gettoken.sh
-iam_file = open("iam_token", 'r')
-iam_token = iam_file.read()
-iam_token = iam_token[:-1]
-rias_endpoint = "https://us-south.iaas.cloud.ibm.com"
+iaas_endpoint = "https://us-south.iaas.cloud.ibm.com"
+resource_controller_endpoint = "https://resource-controller.cloud.ibm.com"
 version = "?version=2019-06-04"
-headers = {"Authorization": iam_token}
 
 #####################################
 # Read desired topology YAML file
 #####################################
 
-parser = argparse.ArgumentParser(description="Destroy VPC topology.")
-parser.add_argument("-y", "--yaml", help="YAML based topology file to destroy")
+parser = argparse.ArgumentParser(description="Create VPC topology.")
+parser.add_argument("-y", "--yaml", help="YAML based topology file to create")
+parser.add_argument("-k", "--apikey", help="File which contains apikey.")
+
 args = parser.parse_args()
 if args.yaml is None:
     filename = "topology.yaml"
 else:
     filename = args.yaml
 
+if args.apikey is None:
+    ini_file = "provision-vpc.ini"
+else:
+    ini_file = args.apikey
+
+# Read INI file and get bearer IAM token
+apikey = parse_apiconfig(ini_file)
+headers = getiamtoken(apikey)
+
 with open(filename, 'r') as stream:
     topology = yaml.load(stream, Loader=yaml.FullLoader)[0]
 
-# Get the preferred VPC generation
+# Get the preferred VPC generation to use, default to gen 1 if not specified
 if 'generation' in topology.keys():
     generation = topology["generation"]
 else:
-    generation = 1;
+    generation = 1
+
+# Determine if region identified is available and get endpoint to use
 
 version = version + '&generation=' + str(generation)
-
-# Determine if region identified is available and get endpoint
 region = getregionavailability(topology["region"])
 
-print("Destroying VPC using generation %d" % generation)
-
 if region["status"] == "available":
-    if generation == 1: rias_endpoint = region["endpoint"]
-    main(region["name"])
+    iaas_endpoint = region["endpoint"]
+    if generation == 2:
+        # override endpoint and force us-south until GA
+        iaas_endpoint = "https://us-south.iaas.cloud.ibm.com"
+    print("Provisioning VPC using generation %d" % generation)
+    print("Using VPC endpoint %s" % iaas_endpoint)
+    main(region["name"], generation, topology)
 else:
     print("Region %s is not currently available." % region["name"])
     quit()

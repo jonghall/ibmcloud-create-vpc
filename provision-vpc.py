@@ -1602,12 +1602,6 @@ def unknownapierror(resp):
 # Set Global Variables
 #####################################
 
-# Create iam_token file by running gettoken.sh
-# iam_file = open("iam_token", 'r')
-# iam_token = iam_file.read()
-# iam_token = iam_token[:-1]
-# headers = {"Authorization": iam_token}
-
 iaas_endpoint = "https://us-south.iaas.cloud.ibm.com"
 resource_controller_endpoint = "https://resource-controller.cloud.ibm.com"
 version = "?version=2019-06-04"

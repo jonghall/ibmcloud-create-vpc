@@ -1,0 +1,8 @@
+---
+# Install & Configure mySQL for wordpress
+
+- include: create-wordpress-db.yaml
+- include: configure-replication-master.yaml
+  when: primary_ipv4_address == master_db
+- include: configure-replication-slave.yaml
+  when: primary_ipv4_address == slave_db

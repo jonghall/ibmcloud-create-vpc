@@ -1,0 +1,26 @@
+---
+
+- name: Apply common configuration to all nodes in inventory
+  hosts: all
+  remote_user: root
+  gather_facts: no
+
+  roles:
+    - common
+
+- name: Configure and deploy the web and application code to webapptier
+  hosts: wtvpc_webapptier_sg
+  remote_user: root
+  gather_facts: no
+
+  roles:
+    - web
+
+- name: Configure Mysql Servers in dbtier
+  hosts: wtvpc_dbtier_sg
+  remote_user: root
+  gather_facts: no
+
+  roles:
+    - db
+

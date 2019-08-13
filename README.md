@@ -11,18 +11,21 @@ A typical Ecommerce web app deployed accross 3 zones consisting of 3 segmented n
 ## Configuring your VPC topology
 The topology is configured using standard YAML format
 
-The first step is to define within the yaml file the VPC name, region location, and characteristics of the vpc.
+The first step is to define within the yaml file the VPC name, region location, and characteristics of the vpc.  For VPC classic
+generation: 1 should be specified.   For VPC, generation: 2 should be specified.   For generation: 2, some VPC features are not available
+during early access and will be ignored (not created.)
+
 ```
--
   vpc: vpcname
   region: us-south
   classic_access: false
   resource_group: default
   default_network_acl: vpc-acl
+  generation: 1
 ```
 Referenced by the VPC is the default network ACL to use.   You can specify one that exists already, or define one within the YAML file.  The default network ACL is used as the default for all subnets created later and controls both ingress and egress traffic out of the subnets.   
+
 ```
--
     network_acls:
       - network_acl: ecommerce-vpc-default-acl
         rules:
@@ -87,8 +90,14 @@ Within each subnet instances can be provisioned.  To faciliate consistent provis
       profile_name: c-2x4
       sshkey: my-ssh-key 
       cloud-init-file: cloud-init.txt
+      volumes:
+        - capacity: 500
+          profile: 10iops-tier
+          delete_volume_on_instance_delete: true
+
 ```
 The instanceTemplates will be used during provisioning and sets the values used for each of the instances requested.
+If secondary volumes are required they should be specified in the template.
 
 Profile_name must be a valid profile_name.   Profiles represent the memory and cpu resources of the virtual machine. 
 To identify available profiles in each region:
@@ -112,6 +121,8 @@ You may define multiple SSH keys to be created by adding the following section t
         sshkey: my-ssh-key
         public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn
 ```
+
+
 # Security Groups
 Security Groups define the egress and ingress traffic from each virtual server instance.   Security Groups can be defined in the security_groups section of the YAML file and are referenced during creation of instances.   Multiple inbound and outbound rules can be defined.   Security group rules can reference CIDR Blocks, Single IP addresses, or other Security Groups.   Security groups are generally fine grained and control traffic flow between and accross tiers of an application topology.
 
@@ -205,18 +216,22 @@ load_balancers:
 ```
 
 ### Execute Script
-Once the YAML configuraiton file is complete you must first authenticate with the IBM Cloud by using Identity and Access Management (IAM).  This script requires that you first request a bearer token and store it in a file called iam_token.   This token is used in an Authorization header for the REST API calls, and is only valid for one hour.  To request the token follow the following steps
-```
-ibmcloud login --sso
-iam_token=$(ibmcloud iam oauth-tokens | awk '/IAM/{ print $3 " " $4; }')
-echo $iam_token > iam_token
-```
-Alternatively you can run the provide script and the following command will request the token and generate the file:
-```
-./gettoken
-```
-Once complete execute the Python code to build the specified VPC and required application topology.   If elements of the VPC already exist, the script will identify the state and move to the next element.   By default the script reads the topology.yaml file, but you can specify a different topology file by using --yaml filename.
+Once the YAML configuraiton file is complete specify your API key either in the provision-vpc.ini or command line.  
 
+<b>provision-vpc.ini</b>
+```
+[API]
+apikey =  apikey goes here
+
+```
+or
+
+```
+./provision-vpc.py -k apikey goes here
+```
+
+By default the script will read <b>toplology.yaml</b> to build the specified VPC and the required application topology.  The --yaml parameter
+can be used to specify an alternative YAML file.   If elements of the VPC already exist, the script will identify the state and move to the next element.  
 ```
 ./provision-vpc.py [--yaml filename]
 ```
@@ -227,6 +242,6 @@ To destroy the VPC created, and systematically delete all objects in the YAML fi
 ```
 
 ## Known Limitations  
-- Only one VPC can be defined in YAML file
+- Only one VPC, in one Region can be defined in YAML file
 - Only parameters shown in YAML file are currently supported
-- If objects already exist, script will not recreate the object and therefore does not evaluate if changes exist.   You must manually delete prior to execution of script if you want the changes to be implemented.
+- If objects already exist, script will not recreate the object and therefore scipt does not evaluate if changes exist.   You must manually delete prior to execution of script if you want the changes to be implemented.
