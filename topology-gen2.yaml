@@ -81,12 +81,14 @@
           ip_version: ipv4
           protocol: all
           remote:
-            cidr_block: 24.252.30.9/32
+            cidr_block: 24.252.31.135/32
         - direction: inbound
           ip_version: ipv4
           port_min: 80
           port_max: 80
           protocol: tcp
+          remote:
+            cidr_block: 0.0.0.0/0
         - direction: outbound
           ip_version: ipv4
           protocol: all
@@ -108,7 +110,7 @@
           ip_version: ipv4
           protocol: all
           remote:
-            cidr_block: 24.252.30.9/32
+            cidr_block: 24.252.31.135/32
         - direction: inbound
           ip_version: ipv4
           port_min: 3306
@@ -122,5 +124,5 @@
           remote:
             cidr_block: 0.0.0.0/0
   sshkeys:
-    - sshkey: test002
+    - sshkey: jonhall
       public_key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ6H4W/5PCtVb6BEgbxNdgDbrJsAFD/Y13mz+qVhM6kHmoOBu5tbbQh7LGfCjpHzZ2A59m2i3zpFNwA9r06UErIfG8U020QAnirrmpo1qqB9tMI7BRSyvf5NFXnUklyszQSsXxxM6eYiQLiHDNnVN7Qyzgq5YcZ8eb559KzmyretdPulEBQvWKZyUbE03kX8ScNTI87p/jX/464viudryjtLgUNuJoFtCCYdoolvnNZsAq3wBl9LOgNaT33nP1ys1R4azG3pC921WX5+g4txws7tVzjPB/e5caOYdGXbFnYi2TXY3agX0wCNj/p/nPEO29c7s7kzEZN9o8ygSrj+Yn'
