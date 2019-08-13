@@ -1,0 +1,9 @@
+# modify these to based on your unique keys
+
+dbpassword: securepassw0rd
+logdna_key: cfb5a2306a83917968afc44d4691cf6b
+sysdig_key: 94563265-2cea-4c3a-938f-365399f8fa3ee
+
+app_name: wordpress.hallusa.com
+master_db: "{{ hostvars['db01-us-south-1']['primary_ipv4_address'] }}"
+slave_db: "{{ hostvars['db01-us-south-2']['primary_ipv4_address'] }}"
