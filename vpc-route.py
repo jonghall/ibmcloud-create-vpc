@@ -5,12 +5,7 @@
 
 ## Latest Next Gen API Spec: https://pages.github.ibm.com/riaas/api-spec/spec_genesis_2019-06-04/
 
-import requests, json, time, sys, yaml, os, argparse, configparser, urllib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
-
-
+import requests, json, time, sys, os, argparse, urllib
 
 def parse_apiconfig(ini_file):
     ################################################
@@ -34,7 +29,6 @@ def parse_apiconfig(ini_file):
     apikey = config["API"]["apikey"]
 
     return apikey
-
 
 def getiamtoken(apikey):
     ################################################
@@ -69,7 +63,6 @@ def getiamtoken(apikey):
 
     return iamtoken
 
-
 def getvpcid(vpc_name):
     ################################################
     ## Lookup VPN ID by name
@@ -102,8 +95,6 @@ def getvpcid(vpc_name):
 
     return vpcid
 
-
-
 def unknownapierror(resp):
     ################################################
     ## Handle Unknown RESPONSE CODE errors
@@ -134,7 +125,6 @@ def unknownapierror(resp):
 
     return
 
-
 def getregionendpoint(region):
     #############################
     # Get Region Availability
@@ -164,7 +154,6 @@ def getregionendpoint(region):
         unknownapierror(resp)
     return
 
-
 def listroutes(vpc):
     # List the custom routes in a VPC
     vpcid = getvpcid(vpc)
@@ -192,7 +181,6 @@ def listroutes(vpc):
                 print("Destination = %s, Next Hop = %s, Zone = %s" % (
                 route["destination"], route["next_hop"]["address"], route["zone"]["name"]))
         return
-
 
 def addroute(vpc, zone, destination, nexthop):
     # List the custom routes in a VPC
@@ -235,6 +223,8 @@ def addroute(vpc, zone, destination, nexthop):
         return
 
 
+def deleteroute(vpc, routeid):
+    reutrn
 #####################################
 # Set Global Variables
 #####################################
