@@ -178,8 +178,8 @@ def listroutes(vpc):
         if resp.status_code == 200:
             routes = json.loads(resp.content)["routes"]
             for route in routes:
-                print("Destination = %s, Next Hop = %s, Zone = %s" % (
-                route["destination"], route["next_hop"]["address"], route["zone"]["name"]))
+                print("ID = %s, Destination = %s, Next Hop = %s, Zone = %s" % (route["id"],
+                                                                               route["destination"], route["next_hop"]["address"], route["zone"]["name"]))
         return
 
 def addroute(vpc, zone, destination, nexthop):
@@ -222,9 +222,32 @@ def addroute(vpc, zone, destination, nexthop):
             route["destination"], route["next_hop"]["address"], route["zone"]["name"]))
         return
 
-
 def deleteroute(vpc, routeid):
-    reutrn
+    # List the custom routes in a VPC
+    vpcid = getvpcid(vpc)
+    if vpcid is None:
+        print("Invalid VPC")
+        quit()
+    else:
+        # get list of VPCs in region to check if VPC already exists
+        try:
+
+            resp = requests.delete(iaas_endpoint + '/v1/vpcs/' + vpcid + "/routes/" + routeid + version,
+                                   headers=headers, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting:", errc)
+            quit()
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error:", errt)
+            quit()
+        except requests.exceptions.HTTPError as errb:
+            unknownapierror(resp)
+
+    if resp.status_code == 204:
+        print("Route deleted succesfully.")
+
+    return
 #####################################
 # Set Global Variables
 #####################################
@@ -246,6 +269,7 @@ parser.add_argument("-r", "--region", default=os.environ.get('IC_REGION'), help=
 parser.add_argument("-z", "--zone", default="us-south-1", help="Zone for which route will be added.")
 parser.add_argument("-d", "--destination", help="Destination Subnet for route.")
 parser.add_argument("-n", "--nexthop", help="Next Hop for route to destination.")
+parser.add_argument("-i", "--routeid", help="Route ID of ")
 
 args = parser.parse_args()
 
@@ -271,7 +295,7 @@ if args.action == "list":
 elif args.action == "add":
     addroute(args.vpc, args.zone, args.destination, args.nexthop)
 elif args.action == "delete":
-    print("not implemented.")
+    deleteroute(args.vpc, args.routeid)
     quit()
 else:
     print("Not a valid action.")
